@@ -1,4 +1,4 @@
-# Liquid Agent Curator
+# Tele - Liquid Agent Curator
 
 An AI Agent strategy curator powered by LlamaStack that automatically generates and deploys yield optimization strategies on Base through the Liquid Protocol.
 
