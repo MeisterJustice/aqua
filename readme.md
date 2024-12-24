@@ -8,7 +8,7 @@ The Liquid AI Curator is an AI Agent that generates and deploys DeFi yield strat
 
 ## Features
 
-- Automated weekly strategy generation 
+- Automated weekly strategy generation
 - Cross-protocol yield optimization
 - Real-time market data analysis
 - Risk-assessed strategy deployment
@@ -35,28 +35,29 @@ liquid-ai-curator/
 │   │
 │   ├── evm/
 │   │   ├── client.ts              # Viem client setup
-│   │   ├── contracts/             
-│   │   │   ├── addresses.ts         
-│   │   │   └── abis/                       
+│   │   ├── contracts/
+│   │   │   ├── addresses.ts
+│   │   │   └── abis/
 │   │
 │   ├── defi/
-│   │   ├── RiskAnalyzer.ts  
+│   │   ├── RiskAnalyzer.ts
 │   │
-│   ├── memory/                   
+│   ├── memory/
 │   │   ├── MarketStore.ts         # LlamaStack memory implementation
-│   │   └── types.ts              
+│   │   └── types.ts
 │   │
 │   └── index.ts                   # Entry point
 │
-├── tests/                         
-├── docker-compose.yml             
-├── .env.example                   
-└── README.md                     
+├── tests/
+├── docker-compose.yml
+├── .env.example
+└── README.md
 ```
 
 ## Setup & Installation
 
 ### Prerequisites
+
 - Node.js >= 18
 - PNPM
 - Docker (for LlamaStack)
@@ -65,22 +66,26 @@ liquid-ai-curator/
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/metastable-labs/tele.git
 cd tele
 ```
 
 2. Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 3. Configure environment:
+
 ```bash
 cp .env.example .env
 ```
 
 4. Update `.env` with your values:
+
 ```env
 LLAMA_STACK_URL=http://localhost:5001
 BASE_RPC_URL=your_base_rpc_url
@@ -90,11 +95,13 @@ PRIVATE_KEY=your_private_key
 ## Running
 
 1. Start LlamaStack server:
+
 ```bash
 docker-compose up -d
 ```
 
 2. Start the curator:
+
 ```bash
 # Development
 pnpm dev
@@ -107,12 +114,14 @@ pnpm start
 ## Development
 
 ### TypeScript Configuration
+
 ```bash
 # Run TypeScript in watch mode
 pnpm typecheck --watch
 ```
 
 ### Testing
+
 ```bash
 # Run tests
 pnpm test
@@ -121,12 +130,14 @@ pnpm test
 ## Production Deployment
 
 ### Using PM2
+
 ```bash
 npm install -g pm2
 pm2 start dist/index.js --name tele
 ```
 
 ### Using Docker
+
 ```bash
 docker build -t tele .
 docker run -d tele
@@ -162,4 +173,4 @@ For support, please open an issue in the repository or reach out through our [Di
 
 ---
 
-*This project is maintained by the Liquid Protocol team*
+_This project is maintained by the Liquid Protocol team_
