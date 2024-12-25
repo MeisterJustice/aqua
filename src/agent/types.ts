@@ -1,9 +1,9 @@
 export interface StrategyStep {
-  protocol: string;
-  actionType: "SUPPLY" | "WITHDRAW" | "BORROW" | "REPAY" | "STAKE" | "UNSTAKE";
+  connector: `0x${string}`;
+  actionType: 0 | 1 | 2 | 3 | 4 | 5;
   assetsIn: `0x${string}`[];
   assetOut: `0x${string}`;
-  amountRatio: number;
+  amountRatio: bigint;
   data: `0x${string}`;
 }
 
