@@ -1,4 +1,6 @@
-// src/agent/config.ts
+// - Configures LlamaStack agent settings
+// - Contains strategy constraints (USDC/WETH rules)
+// - Defines safety thresholds and update frequencies
 
 // Llama Stack Agent Configuration
 export const AGENT_CONFIG = {
