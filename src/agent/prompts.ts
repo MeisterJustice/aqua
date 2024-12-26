@@ -5,6 +5,8 @@ Generate an optimal yield strategy considering:
 2. Risk levels
 3. Gas efficiency
 
+The strategy should be only 
+
 Output format must be JSON:
 {
   "name": "Strategy name",

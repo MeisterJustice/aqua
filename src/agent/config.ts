@@ -37,12 +37,23 @@ export const STRATEGY_CONFIG = {
     minYield: 4.0, // 4% APY
     maxRiskScore: 7, // 1-10 scale
     supportedProtocols: ["moonwell", "morpho"],
+    constraints: {
+      minLendingRatio: 0.8, // 80% minimum in lending protocols
+      minStablecoinExposure: 0.95, // 95% minimum stablecoin exposure
+      supportedStables: [
+        "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC
+      ],
+    },
   },
   weth: {
     maxProtocols: 3,
     minYield: 3.0, // 3% APY
     maxRiskScore: 8,
     supportedProtocols: ["moonwell", "morpho"],
+    constraints: {
+      minLendingRatio: 0.6, // 60% minimum in lending protocols
+      maxLeverage: 2, // 2x max leverage
+    },
   },
 } as const;
 
