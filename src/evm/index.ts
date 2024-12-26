@@ -1,10 +1,3 @@
-import {
-  Address,
-  createPublicClient,
-  http,
-  createWalletClient,
-  parseAbiItem,
-} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { GeneratedStrategy } from "../agent/types";
 import { publicClient, walletClient } from "./client";
@@ -41,9 +34,9 @@ export async function createStrategy(strategy: GeneratedStrategy) {
     const hash = await walletClient.writeContract(request);
 
     // Wait for transaction
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      
-      return receipt;
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+    return receipt;
   } catch (error) {
     console.error("Error creating strategy:", error);
     throw error;
