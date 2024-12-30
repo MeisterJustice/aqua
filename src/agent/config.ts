@@ -2,36 +2,65 @@
 // - Contains strategy constraints (USDC/WETH rules)
 // - Defines safety thresholds and update frequencies
 
+import { STRATEGY_PROMPT } from "./prompts";
+
 // Llama Stack Agent Configuration
+// export const AGENT_CONFIG = {
+//   model: "Llama3.2-3B-Instruct",
+//   tools: [
+//     {
+//       type: "memory",
+//       memoryBankConfigs: [
+//         {
+//           type: "vector",
+//           bankId: "defi_market_data",
+//           embeddingModel: "all-MiniLM-L6-v2",
+//           chunkSizeInTokens: 512,
+//         },
+//       ],
+//       maxTokensInContext: 4096,
+//     },
+//     {
+//       type: "code_interpreter",
+//       enableInlineCodeExecution: true,
+//     },
+//   ],
+//   inputShields: ["content_safety"],
+//   outputShields: ["content_safety"],
+//   maxInferIters: 5,
+//   samplingParams: {
+//     temperature: 0.7,
+//     maxTokens: 2048,
+//   },
+// } as const;
+const bank_id = "base_defi_market_data";
 export const AGENT_CONFIG = {
-  model: "Llama3.2-3B-Instruct",
+  enable_session_persistence: false,
+  instructions: STRATEGY_PROMPT,
+  model: "meta-llama/Llama-3.1-405B-Instruct-FP8",
+  max_infer_iters: 100,
   tools: [
     {
-      type: "memory",
-      memoryBankConfigs: [
+      max_chunks: 1000,
+      max_tokens_in_context: 4096,
+      memory_bank_configs: [
         {
+          bank_id,
           type: "vector",
-          bankId: "defi_market_data",
-          embeddingModel: "all-MiniLM-L6-v2",
-          chunkSizeInTokens: 512,
         },
       ],
-      maxTokensInContext: 4096,
+      type: "memory",
+      query_generator_config: {
+        sep: "",
+        type: "default",
+      },
     },
     {
       type: "code_interpreter",
-      enableInlineCodeExecution: true,
+      enable_inline_code_execution: true,
     },
   ],
-  inputShields: ["content_safety"],
-  outputShields: ["content_safety"],
-  maxInferIters: 5,
-  samplingParams: {
-    temperature: 0.7,
-    maxTokens: 2048,
-  },
-} as const;
-
+};
 // Strategy Generation Configuration
 export const STRATEGY_CONFIG = {
   usdc: {
@@ -61,7 +90,7 @@ export const STRATEGY_CONFIG = {
 
 // Memory Bank Configuration
 export const MEMORY_CONFIG = {
-  bankId: "defi_market_data",
+  bankId: bank_id,
   retentionPeriod: 30 * 24 * 60 * 60, // 30 days in seconds
   updateInterval: 60 * 60, // 1 hour in seconds
 };

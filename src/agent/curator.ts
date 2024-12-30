@@ -10,31 +10,29 @@ import { MarketData } from "../memory/types";
 import { llamaService } from "../provider/llama";
 
 export class Curator {
-  constructor(
-    private readonly marketStore: MarketStore
-  ) {}
+  constructor() {}
 
-  async generateStrategy(
-    assetType: keyof typeof STRATEGY_CONFIG,
-    amount: bigint
-  ): Promise<GeneratedStrategy> {
-    // Get latest market data for analysis
-    const marketData = await this.marketStore.getLatestMarketData();
-    console.log({ marketData });
-    if (!marketData) throw new Error("No market data available");
+  // async generateStrategy(
+  //   assetType: keyof typeof STRATEGY_CONFIG,
+  //   amount: bigint
+  // ): Promise<GeneratedStrategy> {
+  //   // Get latest market data for analysis
+  //   const marketData = await this.marketStore.getLatestMarketData();
+  //   console.log({ marketData });
+  //   if (!marketData) throw new Error("No market data available");
 
-    // Generate optimal strategy using AI
-    const strategy = await this.createOptimalStrategy(
-      assetType,
-      amount,
-      marketData
-    );
+  //   // Generate optimal strategy using AI
+  //   const strategy = await this.createOptimalStrategy(
+  //     assetType,
+  //     amount,
+  //     marketData
+  //   );
 
-    // Validate strategy meets requirements
-    await this.validateStrategy(strategy, assetType);
+  //   // Validate strategy meets requirements
+  //   await this.validateStrategy(strategy, assetType);
 
-    return strategy;
-  }
+  //   return strategy;
+  // }
 
   private async createOptimalStrategy(
     assetType: keyof typeof STRATEGY_CONFIG,
@@ -60,6 +58,82 @@ export class Curator {
     console.log({ response });
     ///double check
     return this.parseStrategyResponse(response.agent_id);
+  }
+
+  private async initializeAgent() {
+    const client = llamaService.getClient();
+    const agent = await client.agents.create({
+      // @ts-ignore
+      agent_config: AGENT_CONFIG,
+    });
+
+    const session = await client.agents.sessions.create({
+      agent_id: agent.agent_id,
+      session_name: agent.agent_id,
+    });
+
+    return { client, agent, session };
+  }
+
+  public async generateStrategy(): Promise<any> {
+    try {
+      const { client, agent, session } = await this.initializeAgent();
+
+      const response = await client.agents.turns.create({
+        agent_id: agent.agent_id,
+        session_id: session.session_id,
+        stream: true,
+        messages: [
+          {
+            role: "user",
+            content:
+              "Thoroughly analyse the data for financial use and give me 1 strategy with 1 steps i can invest in. json format only please and no other content",
+          },
+        ],
+      });
+
+      const stream = response.toReadableStream();
+      const reader = stream.getReader();
+      return await this.processStream(reader);
+    } catch (error) {
+      console.error("Strategy generation failed:", error);
+      throw new Error(`Strategy generation failed: ${error}`);
+    }
+  }
+
+  private async processStream(
+    reader: ReadableStreamDefaultReader
+  ): Promise<any> {
+    let fullText = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      if (!value) continue;
+
+      const chunk = new TextDecoder().decode(value);
+      try {
+        const parsedChunk = JSON.parse(chunk);
+
+        if (parsedChunk?.event?.payload?.text_delta)
+          fullText += parsedChunk.event.payload.text_delta;
+
+        if (parsedChunk?.event?.payload?.event_type === "turn_complete") {
+          const turnData = parsedChunk.event.payload.turn;
+          const modelResponse = turnData.steps.find(
+            (step: { step_type: string }) => step.step_type === "inference"
+          )?.model_response;
+
+          if (modelResponse?.content)
+            return JSON.parse(
+              modelResponse.content.replace(/```\n?j?s?o?n?\n?/g, "")
+            );
+        }
+      } catch (error) {
+        console.error("Error processing chunk:", error);
+        continue;
+      }
+    }
   }
 
   private prepareMarketContext(marketData: MarketData) {
@@ -213,18 +287,19 @@ export class Curator {
   }
 
   private calculateStablecoinExposure(strategy: GeneratedStrategy): number {
-    const stableSteps = strategy.steps.filter((s) =>
-      STRATEGY_CONFIG.usdc.constraints.supportedStables.includes(s.assetOut)
-    );
-    const totalRatio = strategy.steps.reduce(
-      (sum, s) => sum + Number(s.amountRatio),
-      0
-    );
-    const stableRatio = stableSteps.reduce(
-      (sum, s) => sum + Number(s.amountRatio),
-      0
-    );
-    return stableRatio / totalRatio;
+    // const stableSteps = strategy.steps.filter((s) =>
+    //   STRATEGY_CONFIG.usdc.constraints.supportedStables.includes(s.assetOut)
+    // );
+    // const totalRatio = strategy.steps.reduce(
+    //   (sum, s) => sum + Number(s.amountRatio),
+    //   0
+    // );
+    // const stableRatio = stableSteps.reduce(
+    //   (sum, s) => sum + Number(s.amountRatio),
+    //   0
+    // );
+    // return stableRatio / totalRatio;
+    return 0;
   }
 
   private calculateLeverage(strategy: GeneratedStrategy): number {

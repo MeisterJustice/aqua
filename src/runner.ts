@@ -39,13 +39,12 @@ export class Runner {
     }
 
     this.isRunning = true;
-
+    this.runStrategyGenLoop();
     try {
       this.marketDataInterval = setInterval(
         () => this.runMarketDataLoop(),
         UPDATE_CONFIG.marketData
       );
-
       this.strategyGenInterval = setInterval(
         () => this.runStrategyGenLoop(),
         UPDATE_CONFIG.strategyGeneration
@@ -80,17 +79,9 @@ export class Runner {
 
   private async runStrategyGenLoop(): Promise<void> {
     try {
-      const usdcStrategy = await this.curator.generateStrategy(
-        "usdc",
-        BigInt(1000000)
-      );
-
-      const wethStrategy = await this.curator.generateStrategy(
-        "weth",
-        BigInt("1000000000000000000")
-      );
-
-      await this.deployStrategies([usdcStrategy, wethStrategy]);
+      const strategy = await this.curator.generateStrategy();
+      console.log({ strategy: JSON.stringify(strategy) });
+      // await this.deployStrategies([usdcStrategy, wethStrategy]);
       console.log("Strategy generation completed successfully");
     } catch (error) {
       console.error("Strategy generation failed:", error);
