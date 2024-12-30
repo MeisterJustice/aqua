@@ -2,62 +2,46 @@
 // - Creates and manages the AI agent
 // - Generates prompts based on market conditions
 
-import { MarketStore } from "../memory/marketStore";
-import { GeneratedStrategy, StrategyStep } from "./types";
+import { GeneratedStrategy } from "./types";
 import { AGENT_CONFIG, STRATEGY_CONFIG, SAFETY_CONFIG } from "./config";
-import { STRATEGY_PROMPT } from "./prompts";
 import { MarketData } from "../memory/types";
 import { llamaService } from "../provider/llama";
 
 export class Curator {
   constructor() {}
 
-  // async generateStrategy(
-  //   assetType: keyof typeof STRATEGY_CONFIG,
-  //   amount: bigint
-  // ): Promise<GeneratedStrategy> {
-  //   // Get latest market data for analysis
-  //   const marketData = await this.marketStore.getLatestMarketData();
-  //   console.log({ marketData });
-  //   if (!marketData) throw new Error("No market data available");
+  async generateStrategy(
+    assetType: keyof typeof STRATEGY_CONFIG,
+    amount: bigint
+  ): Promise<GeneratedStrategy> {
+    const strategy = await this.createOptimalStrategy(assetType, amount);
+    //TEST WITH REAL DATA LATER
+    // await this.validateStrategy(strategy, assetType);
 
-  //   // Generate optimal strategy using AI
-  //   const strategy = await this.createOptimalStrategy(
-  //     assetType,
-  //     amount,
-  //     marketData
-  //   );
-
-  //   // Validate strategy meets requirements
-  //   await this.validateStrategy(strategy, assetType);
-
-  //   return strategy;
-  // }
+    return strategy;
+  }
 
   private async createOptimalStrategy(
     assetType: keyof typeof STRATEGY_CONFIG,
-    amount: bigint,
-    marketData: MarketData
+    amount: bigint
   ): Promise<GeneratedStrategy> {
-    // Build context for AI prompt
-    // const context = {
-    //   assetType,
-    //   amount: amount.toString(),
-    //   marketData: this.prepareMarketContext(marketData),
-    //   constraints: STRATEGY_CONFIG[assetType],
-    // };
-    const client = llamaService.getClient();
-    const response = await client.agents.create({
-      agent_config: {
-        model: AGENT_CONFIG.model,
-        max_infer_iters: 5,
-        instructions: STRATEGY_PROMPT,
-        enable_session_persistence: true,
-      },
+    const { client, agent, session } = await this.initializeAgent();
+
+    const response = await client.agents.turns.create({
+      agent_id: agent.agent_id,
+      session_id: session.session_id,
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content: `Thoroughly analyse the data for financial use and give me 1 strategy with 1 steps each i can invest for ${assetType.toUpperCase()}. json format only please and no other content`,
+        },
+      ],
     });
-    console.log({ response });
-    ///double check
-    return this.parseStrategyResponse(response.agent_id);
+
+    const stream = response.toReadableStream();
+    const reader = stream.getReader();
+    return await this.processStream(reader);
   }
 
   private async initializeAgent() {
@@ -73,32 +57,6 @@ export class Curator {
     });
 
     return { client, agent, session };
-  }
-
-  public async generateStrategy(): Promise<any> {
-    try {
-      const { client, agent, session } = await this.initializeAgent();
-
-      const response = await client.agents.turns.create({
-        agent_id: agent.agent_id,
-        session_id: session.session_id,
-        stream: true,
-        messages: [
-          {
-            role: "user",
-            content:
-              "Thoroughly analyse the data for financial use and give me 1 strategy with 1 steps i can invest in. json format only please and no other content",
-          },
-        ],
-      });
-
-      const stream = response.toReadableStream();
-      const reader = stream.getReader();
-      return await this.processStream(reader);
-    } catch (error) {
-      console.error("Strategy generation failed:", error);
-      throw new Error(`Strategy generation failed: ${error}`);
-    }
   }
 
   private async processStream(
@@ -203,7 +161,6 @@ export class Curator {
     const constraints = STRATEGY_CONFIG[assetType];
     const errors: string[] = [];
 
-    // Check protocol count
     const uniqueProtocols = new Set(strategy.steps.map((s) => s.connector));
     if (uniqueProtocols.size > constraints.maxProtocols) {
       errors.push(`Too many protocols used: ${uniqueProtocols.size}`);
@@ -321,47 +278,5 @@ export class Curator {
 
   private async estimateGasCosts(strategy: GeneratedStrategy): Promise<number> {
     return 0;
-  }
-
-  private parseStrategyResponse(response: string): GeneratedStrategy {
-    try {
-      const parsed = JSON.parse(response);
-
-      if (!parsed.name || !parsed.description || !Array.isArray(parsed.steps)) {
-        throw new Error("Invalid strategy response format");
-      }
-
-      const steps = parsed.steps.map((step: any): StrategyStep => {
-        if (
-          !step.protocol ||
-          !step.actionType ||
-          !Array.isArray(step.assetsIn) ||
-          !step.assetsIn ||
-          !step.assetOut ||
-          !step.amountRatio ||
-          !step.data
-        ) {
-          throw new Error("Invalid strategy step format");
-        }
-
-        return {
-          connector: step.protocol as `0x${string}`,
-          actionType: step.actionType,
-          assetsIn: step.assetsIn as `0x${string}`[],
-          assetOut: step.assetOut as `0x${string}`,
-          amountRatio: BigInt(step.amountRatio),
-          data: step.data as `0x${string}`,
-        };
-      });
-
-      return {
-        name: parsed.name,
-        description: parsed.description,
-        steps,
-        minDeposit: BigInt(parsed.minDeposit),
-      };
-    } catch (error) {
-      throw new Error(`Failed to parse strategy response: ${error}`);
-    }
   }
 }

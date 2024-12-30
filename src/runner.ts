@@ -20,7 +20,10 @@
 
 import { UPDATE_CONFIG } from "./agent/config";
 import { Curator } from "./agent/curator";
+import { GeneratedStrategy } from "./agent/types";
 import { mockMarketData } from "./data/mockData";
+import { createStrategy } from "./evm";
+import { logger } from "./logger";
 import { MarketStore } from "./memory/marketStore";
 
 export class Runner {
@@ -71,17 +74,20 @@ export class Runner {
     try {
       const marketData = await this.fetchLatestMarketData();
       await this.marketStore.storeMarketData(marketData);
-      console.log("Market data updated successfully");
+      logger.info("Market data updated successfully");
     } catch (error) {
-      console.error("Market data update failed:", error);
+      logger.error("Market data update failed:", error);
     }
   }
 
   private async runStrategyGenLoop(): Promise<void> {
     try {
-      const strategy = await this.curator.generateStrategy();
-      console.log({ strategy: JSON.stringify(strategy) });
-      // await this.deployStrategies([usdcStrategy, wethStrategy]);
+      const [usdcStrategy, wethStrategy] = await Promise.all([
+        this.curator.generateStrategy("usdc", BigInt("1000000")),
+        this.curator.generateStrategy("weth", BigInt("1000000000000000000")),
+      ]);
+      console.log([usdcStrategy, wethStrategy]);
+      await this.deployStrategies([usdcStrategy, wethStrategy]);
       console.log("Strategy generation completed successfully");
     } catch (error) {
       console.error("Strategy generation failed:", error);
@@ -92,7 +98,13 @@ export class Runner {
     return mockMarketData;
   }
 
-  private async deployStrategies(strategies: any[]): Promise<void> {
-    console.log("Strategies deployed:", strategies);
+  private async deployStrategies(
+    strategies: GeneratedStrategy[]
+  ): Promise<void> {
+    await Promise.all(
+      strategies.map(({ name, description, steps, minDeposit }) =>
+        createStrategy({ name, description, steps, minDeposit })
+      )
+    );
   }
 }

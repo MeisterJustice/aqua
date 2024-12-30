@@ -13,3 +13,23 @@ export interface GeneratedStrategy {
   steps: StrategyStep[];
   minDeposit: bigint;
 }
+
+export interface StrategyOutput {
+  name: string;
+  description: string;
+  steps: StrategyStep[];
+  minDeposit: string;
+}
+
+export interface StrategyConfig {
+  maxProtocols: number;
+  minYield: number;
+  maxRiskScore: number;
+  supportedProtocols: string[];
+  constraints: {
+    minLendingRatio: number;
+    minStablecoinExposure?: number;
+    supportedStables?: string[];
+    maxLeverage?: number;
+  };
+}
