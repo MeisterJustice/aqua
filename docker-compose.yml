@@ -1,46 +1,30 @@
-version: '3.8'
-
+version: "3.8"
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: llama-ollama
+  stack:
+    image: llamastack/distribution-together
+    container_name: llama-stack
+    environment:
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OTEL_SERVICE_NAME=llama-stack
+      - TELEMETRY_SINKS=console,sqlite
+      - SQLITE_STORE_DIR=/root/.llama/distributions/together
+      - SQLITE_DB_PATH=/root/.llama/distributions/together/trace_store.db
     volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
+      - stack_data:/root/.llama
     networks:
       - llama-network
+    ports:
+      - "5002:5000"
     healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:8000/alpha/health || exit 1
+      test: wget --no-verbose --tries=1 --spider http://localhost:5002/alpha/health || exit 1
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 40s
     restart: unless-stopped
 
-  stack:
-    build:
-      context: .
-      dockerfile: Dockerfile.stack
-    container_name: llama-stack
-    depends_on:
-      ollama:
-        condition: service_healthy
-    environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - INFERENCE_MODEL=meta-llama/Llama-3.2-3B-Instruct
-      - SQLITE_STORE_DIR=/root/.llama/distributions/ollama
-    volumes:
-      - stack_data:/root/.llama
-    networks:
-      - llama-network
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
-
 volumes:
-  ollama_data:
-    name: llama_stack_ollama_data
   stack_data:
     name: llama_stack_data
 
