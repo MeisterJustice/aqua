@@ -19,7 +19,7 @@ export class MarketStore {
         bank_id: this.config.bankId,
         documents: data.map((item) => ({
           content: JSON.stringify(item, (_, value) =>
-            typeof value === "bigint" ? value.toString() : value
+            typeof value === "bigint" ? value.toString() : value,
           ),
           document_id: `${item.timestamp}-${item.blockNumber}`,
           metadata: {

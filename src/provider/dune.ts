@@ -20,7 +20,7 @@ export class DuneService {
 
   async runQuery<T = any>(
     queryId: number,
-    parameters: QueryParameter[] = []
+    parameters: QueryParameter[] = [],
   ): Promise<T[]> {
     try {
       const result = await this.client.runQuery({ queryId, parameters });

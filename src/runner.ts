@@ -33,7 +33,7 @@ export class Runner {
 
   constructor(
     private readonly marketStore: MarketStore,
-    private readonly curator: Curator
+    private readonly curator: Curator,
   ) {}
 
   async start(): Promise<void> {
@@ -46,11 +46,11 @@ export class Runner {
     try {
       this.marketDataInterval = setInterval(
         () => this.runMarketDataLoop(),
-        UPDATE_CONFIG.marketData
+        UPDATE_CONFIG.marketData,
       );
       this.strategyGenInterval = setInterval(
         () => this.runStrategyGenLoop(),
-        UPDATE_CONFIG.strategyGeneration
+        UPDATE_CONFIG.strategyGeneration,
       );
     } catch (error) {
       this.isRunning = false;
@@ -99,12 +99,12 @@ export class Runner {
   }
 
   private async deployStrategies(
-    strategies: GeneratedStrategy[]
+    strategies: GeneratedStrategy[],
   ): Promise<void> {
     await Promise.all(
       strategies.map(({ name, description, steps, minDeposit }) =>
-        createStrategy({ name, description, steps, minDeposit })
-      )
+        createStrategy({ name, description, steps, minDeposit }),
+      ),
     );
   }
 }

@@ -12,7 +12,7 @@ export class Curator {
 
   async generateStrategy(
     assetType: keyof typeof STRATEGY_CONFIG,
-    amount: bigint
+    amount: bigint,
   ): Promise<GeneratedStrategy> {
     const strategy = await this.createOptimalStrategy(assetType, amount);
     //TEST WITH REAL DATA LATER
@@ -23,7 +23,7 @@ export class Curator {
 
   private async createOptimalStrategy(
     assetType: keyof typeof STRATEGY_CONFIG,
-    amount: bigint
+    amount: bigint,
   ): Promise<GeneratedStrategy> {
     const { client, agent, session } = await this.initializeAgent();
 
@@ -60,7 +60,7 @@ export class Curator {
   }
 
   private async processStream(
-    reader: ReadableStreamDefaultReader
+    reader: ReadableStreamDefaultReader,
   ): Promise<any> {
     let fullText = "";
     while (true) {
@@ -79,12 +79,12 @@ export class Curator {
         if (parsedChunk?.event?.payload?.event_type === "turn_complete") {
           const turnData = parsedChunk.event.payload.turn;
           const modelResponse = turnData.steps.find(
-            (step: { step_type: string }) => step.step_type === "inference"
+            (step: { step_type: string }) => step.step_type === "inference",
           )?.model_response;
 
           if (modelResponse?.content)
             return JSON.parse(
-              modelResponse.content.replace(/```\n?j?s?o?n?\n?/g, "")
+              modelResponse.content.replace(/```\n?j?s?o?n?\n?/g, ""),
             );
         }
       } catch (error) {
@@ -110,7 +110,7 @@ export class Curator {
               totalBorrow: market.totalBorrow.toString(),
               liquidity: market.liquidity.toString(),
               collateralFactor: market.collateralFactor,
-            })
+            }),
           ),
         },
         morpho: {
@@ -125,7 +125,7 @@ export class Curator {
               token: vault.token,
               performanceFee: vault.performanceFee,
               timelock: vault.timelock,
-            })
+            }),
           ),
         },
       },
@@ -136,7 +136,7 @@ export class Curator {
           decimals: token.decimals,
           symbol: token.symbol,
           totalSupply: token.totalSupply.toString(),
-        })
+        }),
       ),
       metrics: Object.entries(marketData.riskMetrics).map(
         ([address, metrics]: [
@@ -149,14 +149,14 @@ export class Curator {
           uniqueUsers24h: metrics.uniqueUsers24h,
           healthFactor: metrics.healthFactor,
           lastUpdate: metrics.lastUpdate,
-        })
+        }),
       ),
     };
   }
 
   private async validateStrategy(
     strategy: GeneratedStrategy,
-    assetType: keyof typeof STRATEGY_CONFIG
+    assetType: keyof typeof STRATEGY_CONFIG,
   ): Promise<void> {
     const constraints = STRATEGY_CONFIG[assetType];
     const errors: string[] = [];
@@ -181,7 +181,7 @@ export class Curator {
 
   private async validateUSDCStrategy(
     strategy: GeneratedStrategy,
-    errors: string[]
+    errors: string[],
   ): Promise<void> {
     const constraints = STRATEGY_CONFIG.usdc.constraints;
 
@@ -198,7 +198,7 @@ export class Curator {
 
   private async validateWETHStrategy(
     strategy: GeneratedStrategy,
-    errors: string[]
+    errors: string[],
   ): Promise<void> {
     const constraints = STRATEGY_CONFIG.weth.constraints;
 
@@ -215,7 +215,7 @@ export class Curator {
 
   private async performSafetyChecks(
     strategy: GeneratedStrategy,
-    errors: string[]
+    errors: string[],
   ): Promise<void> {
     for (const step of strategy.steps) {
       const tvl = await this.getProtocolTVL(step.connector);
@@ -234,11 +234,11 @@ export class Curator {
     const lendingSteps = strategy.steps.filter((s) => s.actionType === 0);
     const totalRatio = strategy.steps.reduce(
       (sum, s) => sum + Number(s.amountRatio),
-      0
+      0,
     );
     const lendingRatio = lendingSteps.reduce(
       (sum, s) => sum + Number(s.amountRatio),
-      0
+      0,
     );
     return lendingRatio / totalRatio;
   }
@@ -263,11 +263,11 @@ export class Curator {
     const borrowSteps = strategy.steps.filter((s) => s.actionType === 1);
     const totalBorrow = borrowSteps.reduce(
       (sum, s) => sum + Number(s.amountRatio),
-      0
+      0,
     );
     const totalSupply = strategy.steps.reduce(
       (sum, s) => sum + Number(s.amountRatio),
-      0
+      0,
     );
     return 1 + totalBorrow / totalSupply;
   }
