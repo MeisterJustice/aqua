@@ -1,54 +1,121 @@
 import { Address } from "viem";
 import {
   MarketData,
-  LlamaProtocolResponse,
-  LlamaYieldsResponse,
   Market,
   Vault,
   Token,
   RiskMetrics,
+  CoinsResponse,
+  PriceChangeResponse,
+  PriceChange,
+  LlamaYieldResponse,
+  LlamaProtocolResponse,
 } from "./types";
 
-async function fetchDeFiData(): Promise<MarketData[]> {
-  // Helper function to fetch data
-  async function fetchAPI<T>(endpoint: string): Promise<T> {
-    const response = await fetch(
-      `https://pro-api.llama.fi/${process.env.DEFI_LLAMA_API_KEY}${endpoint}`,
-    );
-    if (!response.ok) {
-      throw new Error(`API call failed: ${endpoint}`);
-    }
-    return response.json() as Promise<T>;
-  }
+const API_ENDPOINTS = {
+  DEFI_LLAMA: "https://api.llama.fi",
+  COINS_API: "https://coins.llama.fi",
+  YIELDS_API: "https://yields.llama.fi",
+} as const;
 
-  // Fetch token prices and data
-  const tokenAddresses = {
-    WETH: "0x4200000000000000000000000000000000000006", // WETH
-    USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC
-  } as const;
+const TOKEN_ADDRESSES = {
+  WETH: "0x4200000000000000000000000000000000000006", // WETH on Base
+  USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC on Base
+} as const;
+
+async function fetchAPI<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`API call failed: ${url}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+async function fetchTokenPricesAndChanges(tokens: string[]): Promise<{
+  prices: CoinsResponse;
+  changes: Record<string, PriceChange>;
+}> {
+  const tokenIds = tokens.map((address) => `base:${address}`).join(",");
+  const [prices, day, week, month] = await Promise.all([
+    fetchAPI<CoinsResponse>(
+      `${API_ENDPOINTS.COINS_API}/prices/current/${tokenIds}`,
+    ),
+    fetchAPI<PriceChangeResponse>(
+      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=24h`,
+    ),
+    fetchAPI<PriceChangeResponse>(
+      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=7d`,
+    ),
+    fetchAPI<PriceChangeResponse>(
+      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=30d`,
+    ),
+  ]);
+
+  const changes: Record<string, PriceChange> = {};
+  tokens.forEach((token) => {
+    const key = `base:${token}`;
+    changes[token] = {
+      "24h": day.coins[key]?.percentage || 0,
+      "7d": week.coins[key]?.percentage || 0,
+      "30d": month.coins[key]?.percentage || 0,
+    };
+  });
+
+  return { prices, changes };
+}
+
+async function fetchDeFiData(): Promise<MarketData[]> {
   try {
     // Fetch all required data
-    const [moonwellData, morphoData, yieldsData] = await Promise.all([
-      fetchAPI<LlamaProtocolResponse>("/protocol/moonwell"),
-      fetchAPI<LlamaProtocolResponse>("/protocol/morpho"),
-      fetchAPI<LlamaYieldsResponse>("/yields/pools"),
+    const [moonwellProtocol, morphoProtocol, yieldsData] = await Promise.all([
+      fetchAPI<LlamaProtocolResponse>(
+        `${API_ENDPOINTS.DEFI_LLAMA}/protocol/moonwell`,
+      ),
+      fetchAPI<LlamaProtocolResponse>(
+        `${API_ENDPOINTS.DEFI_LLAMA}/protocol/morpho`,
+      ),
+      fetchAPI<LlamaYieldResponse>(`${API_ENDPOINTS.YIELDS_API}/pools`),
     ]);
+
+    // Filter yields for Base network and our protocols
+    const baseYields = yieldsData.data.filter(
+      (pool) =>
+        pool.chain === "Base" &&
+        (pool.project === "moonwell" || pool.project === "morpho"),
+    );
+
+    // Fetch price data
+    const tokenAddresses = Object.values(TOKEN_ADDRESSES);
+    const { prices, changes } =
+      await fetchTokenPricesAndChanges(tokenAddresses);
 
     // Format Moonwell markets data
     const moonwellMarkets: Record<string, Market> = {};
-    moonwellData.pools?.forEach((pool: any) => {
+    const moonwellYields = baseYields.filter(
+      (pool) => pool.project === "moonwell",
+    );
+    moonwellYields.forEach((pool) => {
+      const underlyingToken = pool.underlyingTokens[0];
       if (
-        pool.token === tokenAddresses.WETH ||
-        pool.token === tokenAddresses.USDC
+        underlyingToken &&
+        Object.values(TOKEN_ADDRESSES).includes(underlyingToken)
       ) {
-        moonwellMarkets[pool.pool] = {
-          supplyRate: (pool.apyBase || 0) / 100,
-          borrowRate: (pool.apyBaseBorrow || 0) / 100,
-          totalSupply: BigInt(Math.floor(pool.tvlUsd * 1e6)),
-          totalBorrow: BigInt(Math.floor((pool.borrowUsd || 0) * 1e6)),
-          liquidity: BigInt(
-            Math.floor((pool.tvlUsd - (pool.borrowUsd || 0)) * 1e6),
+        moonwellMarkets[underlyingToken as keyof typeof TOKEN_ADDRESSES] = {
+          supplyRate: pool.apyBase,
+          borrowRate: pool.apy - pool.apyBase || 0, // apyBaseBorrow is apy - apyBase
+          totalSupply: BigInt(
+            Math.floor(moonwellProtocol.currentChainTvls["Base"] || 0),
           ),
+          totalBorrow: BigInt(
+            Math.floor(moonwellProtocol.currentChainTvls["Base-borrowed"] || 0),
+          ),
+          liquidity:
+            BigInt(Math.floor(moonwellProtocol.currentChainTvls["Base"] || 0)) -
+            BigInt(
+              Math.floor(
+                moonwellProtocol.currentChainTvls["Base-borrowed"] || 0,
+              ),
+            ),
           collateralFactor: 0.8,
         };
       }
@@ -56,34 +123,38 @@ async function fetchDeFiData(): Promise<MarketData[]> {
 
     // Format Morpho vaults data
     const morphoVaults: Record<string, Vault> = {};
-    morphoData.pools?.forEach(
-      (pool: { token: string; apyBase: any; tvlUsd: number }) => {
-        if (
-          pool.token === tokenAddresses.WETH ||
-          pool.token === tokenAddresses.USDC
-        ) {
-          morphoVaults[pool.token] = {
-            apy: (pool.apyBase || 0) / 100,
-            tvl: BigInt(Math.floor(pool.tvlUsd * 1e6)),
-            token: pool.token,
-            performanceFee: 0.1,
-            timelock: 86400,
-          };
-        }
-      },
-    );
+    const morphoYields = baseYields.filter((pool) => pool.project === "morpho");
+
+    morphoYields.forEach((pool) => {
+      if (
+        pool.underlyingTokens[0] &&
+        Object.values(TOKEN_ADDRESSES).includes(pool.underlyingTokens[0])
+      ) {
+        morphoVaults[pool.underlyingTokens[0]] = {
+          apy: pool.apy,
+          tvl: morphoProtocol.currentChainTvls["Base"] || 0,
+          token: pool.underlyingTokens[0],
+          performanceFee: 0.1,
+          timelock: 86400,
+        };
+      }
+    });
 
     // Format tokens data
     const tokens: Record<string, Token> = {};
-    Object.values(tokenAddresses).forEach((address) => {
-      const tokenData = yieldsData.find(
-        (p: { token: string }) => p.token === address,
+    Object.values(TOKEN_ADDRESSES).forEach((address) => {
+      const priceData = prices.coins[`base:${address}`];
+      const priceChange = changes[address];
+      const yieldData = baseYields.find(
+        (pool) => pool.underlyingTokens[0] === address,
       );
+
       tokens[address] = {
-        price: tokenData?.price || 0,
-        decimals: address === tokenAddresses.USDC ? 6 : 18,
-        symbol: tokenData?.symbol || "",
-        totalSupply: BigInt(Math.floor((tokenData?.tvlUsd || 0) * 1e6)),
+        price: priceData?.price || 0,
+        priceChange: priceChange || { "24h": 0, "7d": 0, "30d": 0 },
+        decimals: address === TOKEN_ADDRESSES.USDC ? 6 : 18,
+        symbol: yieldData?.symbol || priceData?.symbol || "",
+        totalSupply: 0,
       };
     });
 
@@ -91,15 +162,14 @@ async function fetchDeFiData(): Promise<MarketData[]> {
     const riskMetrics: Record<string, RiskMetrics> = {};
     [...Object.keys(moonwellMarkets), ...Object.keys(morphoVaults)].forEach(
       (address) => {
-        const protocolData =
-          moonwellData.pools?.find(
-            (p: { pool: string }) => p.pool === address,
-          ) ||
-          morphoData.pools?.find((p: { token: string }) => p.token === address);
+        const yieldData = baseYields.find(
+          (pool) => pool.underlyingTokens[0] === address,
+        );
+
         riskMetrics[address] = {
-          tvlUSD: protocolData?.tvlUsd || 0,
-          volume24hUSD: protocolData?.volume24h || 0,
-          uniqueUsers24h: Math.floor(Math.random() * 10000), // Not provided by API
+          tvlUSD: yieldData?.tvlUsd || 0,
+          volume24hUSD: yieldData?.volumeUsd1d || 0,
+          uniqueUsers24h: 0,
           healthFactor: 0.85,
           lastUpdate: Date.now(),
         };
@@ -124,7 +194,6 @@ async function fetchDeFiData(): Promise<MarketData[]> {
   }
 }
 
-// Error handling wrapper for usage
 export async function getMarketData(): Promise<MarketData[]> {
   try {
     return await fetchDeFiData();
