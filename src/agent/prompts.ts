@@ -1,32 +1,92 @@
 import { STRATEGY_CONFIG } from "./config";
+import { Protocol } from "./liquid/type";
 
-const USDC_CONSTRAINTS = `USDC Strategy Constraints:
-- Minimum 80% in lending protocols (moonwell, morpho)
-- Required >= 95% stablecoin exposure
-- Maximum 3 protocols allowed
-- Minimum 4% APY target
-- Risk score limit of 7/10`;
+export const STRATEGY_PROMPT = `You are a DeFi strategy curator for the Liquid protocol on Base.
+Focus on creating optimal yield strategies for USDC and WETH using Morpho and Moonwell protocols while adhering to risk constraints.
+Prioritize strategies that:
+- Maximize yield while maintaining a balanced risk profile.
+- Ensure compliance with lending and borrowing constraints.
+- Optimize capital allocation between Morpho and Moonwell.`;
 
-const WETH_CONSTRAINTS = `WETH Strategy Constraints:  
-- Minimum 60% in lending protocols
-- Allow leveraged positions up to 2X
-- Maximum 3 protocols allowed
-- Minimum 3% APY target 
-- Risk score limit of 8/10`;
+export const ANALYZE_MARKET = `Analyze these Base protocols focusing on:
+- TVL stability
+- Yield sustainability
+- Protocol risks
+- Market conditions impact`;
 
-const VALIDATION_RULES = `
-- Response must be a valid JSON object matching the output format exactly
-- Steps array must contain at least 1 step
-- Each step's amountRatio must be between 1-10000
-- Sum of all amountRatios must equal 10000
-- Protocol addresses must be valid Ethereum addresses
-- actionType must be one of: SUPPLY, BORROW, STAKE, WITHDRAW, REPAY, CLAIM
-- All token addresses must be valid Ethereum addresses
-- minDeposit must be a valid wei amount string
-- Do not include any text outside the JSON object
-- Do not include explanations or additional comments`;
+export const GENERATE_STRATEGY = (
+  asset: "USDC" | "WETH",
+  marketAnalysis: string
+): string => {
+  const config =
+    STRATEGY_CONFIG[asset.toLowerCase() as keyof typeof STRATEGY_CONFIG];
+  const constraints = Object.entries(config.constraints)
+    .map(([key, value]) =>
+      Array.isArray(value)
+        ? `- ${key.replace(/([A-Z])/g, " $1")}: ${value.join(", ")}`
+        : `- ${key.replace(/([A-Z])/g, " $1")}: ${value}`
+    )
+    .join("\n");
 
-const OUTPUT_TEMPLATE = {
+  return `Create a ${asset} strategy following these rules:
+  
+  Constraints:
+  - Number of steps allowed: ${config.steps}
+  - Maximum number of protocols: ${config.maxProtocols}
+  - Minimum yield: ${config.minYield}%
+  - Maximum risk score: ${config.maxRiskScore}/10
+  
+  Specific Constraints:
+  ${constraints}
+  
+  Previous Market Analysis:
+  ${marketAnalysis}`;
+};
+
+export const MONITOR_STRATEGY = (asset: string): string => {
+  return `Monitor this ${asset} strategy:
+    - Check allocation health
+    - Verify constraint compliance
+    - Assess market impact
+    - Identify risk changes
+  
+    Provide clear monitoring status.`;
+};
+
+export const REVIEW_STRATEGY = (asset: string): string => {
+  return `Review and update ${asset} strategy:
+    - Assess performance
+    - Check market changes
+    - Validate constraints
+    - Propose adjustments if needed
+  
+    Return updated strategy maintaining risk parameters.`;
+};
+
+export const STRATEGY_OUTPUT = (
+  asset: "USDC" | "WETH",
+  marketAnalysis: string,
+  protocols: Protocol[]
+): string => {
+  return `Generate a ${asset} strategy strictly in JSON format with no additional text. Use the the JSON format:
+  ${JSON.stringify(OUTPUT_TEMPLATE, null, 2)}
+  
+    The strategy must:
+    - Reflect the following market analysis:
+    ${marketAnalysis}
+  
+    Ensure the output is valid JSON and contains:
+    - A descriptive name and explanation.
+    - Steps using the provided protocols.
+    - Relevant data fields.
+
+    Input Details:
+    - Market Analysis: ${marketAnalysis}
+    - Protocols: ${JSON.stringify(protocols, null, 2)}
+    `;
+};
+
+export const OUTPUT_TEMPLATE = `{
   name: "Strategy name",
   description: "Detailed explanation",
   steps: [
@@ -40,24 +100,4 @@ const OUTPUT_TEMPLATE = {
     },
   ],
   minDeposit: "minimum deposit amount in wei",
-} as const;
-
-export const STRATEGY_PROMPT = `You are an AI DeFi strategy curator. Generate an optimal yield strategy considering:
-
-1. Market conditions & APYs
-2. Risk levels
-3. Gas efficiency
-
-Use the following configuration object for specific constraints:
-${JSON.stringify(STRATEGY_CONFIG, null, 2)}
-
-Strategy Creation Rules:
-${USDC_CONSTRAINTS}
-
-${WETH_CONSTRAINTS}
-
-Output format must be strictly JSON matching:
-${JSON.stringify(OUTPUT_TEMPLATE, null, 2)}
-
-Validation Rules (MUST be strictly followed):
-${VALIDATION_RULES}`;
+}`;

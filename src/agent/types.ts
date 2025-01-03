@@ -33,3 +33,32 @@ export interface StrategyConfig {
     maxLeverage?: number;
   };
 }
+
+
+interface Protocol {
+  name: string;
+  tvl: number;
+  apy: number;
+  risk_score: number;
+  supported_assets: string[];
+}
+
+interface Strategy {
+  id: string;
+  asset: 'USDC' | 'WETH';
+  allocations: {
+      protocol: string;
+      percentage: number;
+      leverage?: number;
+  }[];
+  estimated_apy: number;
+  risk_level: string;
+  timestamp: string;
+}
+
+interface MarketCondition {
+  protocols: Protocol[];
+  market_risk: number;
+  gas_prices: number;
+  timestamp: string;
+}

@@ -1,38 +1,5 @@
-// - Configures LlamaStack agent settings
-// - Contains strategy constraints (USDC/WETH rules)
-// - Defines safety thresholds and update frequencies
-
 import { STRATEGY_PROMPT } from "./prompts";
 
-// Llama Stack Agent Configuration
-// export const AGENT_CONFIG = {
-//   model: "Llama3.2-3B-Instruct",
-//   tools: [
-//     {
-//       type: "memory",
-//       memoryBankConfigs: [
-//         {
-//           type: "vector",
-//           bankId: "defi_market_data",
-//           embeddingModel: "all-MiniLM-L6-v2",
-//           chunkSizeInTokens: 512,
-//         },
-//       ],
-//       maxTokensInContext: 4096,
-//     },
-//     {
-//       type: "code_interpreter",
-//       enableInlineCodeExecution: true,
-//     },
-//   ],
-//   inputShields: ["content_safety"],
-//   outputShields: ["content_safety"],
-//   maxInferIters: 5,
-//   samplingParams: {
-//     temperature: 0.7,
-//     maxTokens: 2048,
-//   },
-// } as const;
 const bank_id = "base_defi_market_data";
 export const AGENT_CONFIG = {
   enable_session_persistence: false,
@@ -64,6 +31,7 @@ export const AGENT_CONFIG = {
 // Strategy Generation Configuration
 export const STRATEGY_CONFIG = {
   usdc: {
+    steps: 1,
     maxProtocols: 3,
     minYield: 4.0, // 4% APY
     maxRiskScore: 7, // 1-10 scale
@@ -77,13 +45,16 @@ export const STRATEGY_CONFIG = {
     },
   },
   weth: {
+    steps: 1,
     maxProtocols: 3,
     minYield: 3.0, // 3% APY
     maxRiskScore: 8,
     supportedProtocols: ["moonwell", "morpho"],
     constraints: {
       minLendingRatio: 0.6, // 60% minimum in lending protocols
-      maxLeverage: 2, // 2x max leverage
+      supportedTokens: [
+        "0x4200000000000000000000000000000000000006", //WETH
+      ],
     },
   },
 } as const;
