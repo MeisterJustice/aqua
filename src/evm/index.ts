@@ -1,10 +1,10 @@
 import { privateKeyToAccount } from "viem/accounts";
 import { GeneratedStrategy } from "../agent/types";
 import { publicClient, walletClient } from "./client";
-import { MOONWELL_CONNECTOR, STRATEGY } from "./contracts/addresses";
 import { StrategyAbi } from "./contracts/abis/Strategy";
 import { logger } from "../logger";
 import { ActionTypeMap } from "./types";
+import { STRATEGY } from "./contracts/addresses";
 
 export async function createStrategy(strategy: GeneratedStrategy) {
   if (!process.env.PRIVATE_KEY) {
@@ -13,32 +13,47 @@ export async function createStrategy(strategy: GeneratedStrategy) {
   const account = privateKeyToAccount(`0x${process.env.PRIVATE_KEY}`);
   try {
     const { request } = await publicClient.simulateContract({
-      address: account.address,
+      address: STRATEGY,
       abi: StrategyAbi.abi,
       functionName: "createStrategy",
       args: [
         strategy.name,
         strategy.description,
         strategy.steps.map((step) => ({
-          connector: MOONWELL_CONNECTOR, //TEMPORARY
+          connector: step.connector,
           actionType: ActionTypeMap[step.actionType],
           assetsIn: step.assetsIn,
-          assetOut: step.assetsIn[0], //TEMPORARY
+          assetOut: step.assetOut,
           amountRatio: BigInt(step.amountRatio),
-          data: step.data,
+          data: step.data || "0x",
         })),
-        strategy.minDeposit,
+        BigInt(strategy.minDeposit),
       ],
-      account: account.address,
+      account,
     });
 
+    logger.info("Simulated contract call successfully", { request });
+
     const hash = await walletClient.writeContract(request);
-    console.log({ hash });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    logger.info("Transaction submitted", { hash });
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash,
+      timeout: 60_000, // 1 minute timeout
+      confirmations: 1,
+    });
+
+    logger.info("Transaction confirmed", {
+      hash: receipt.transactionHash,
+      blockNumber: receipt.blockNumber,
+    });
 
     return receipt;
   } catch (error) {
-    logger.error("Error creating strategy:", error);
-    throw error;
+    logger.error("Error creating strategy:", {
+      message: error,
+      stack: error,
+    });
+    throw new Error(`Failed to create strategy: ${error}`);
   }
 }

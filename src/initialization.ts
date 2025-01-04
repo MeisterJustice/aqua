@@ -1,4 +1,3 @@
-import { Curator } from "./agent/curator";
 import { logger } from "./logger";
 import { MarketStore } from "./memory/marketStore";
 import { Runner } from "./runner";
@@ -13,8 +12,7 @@ export class AppInitializer {
 
     try {
       const marketStore = new MarketStore();
-      const curator = new Curator();
-      const runner = new Runner(marketStore, curator);
+      const runner = new Runner(marketStore);
 
       await runner.start();
       this.isRunning = true;

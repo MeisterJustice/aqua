@@ -1,18 +1,22 @@
+import {
+  MOONWELL_CONNECTOR,
+  MORPHO_CONNECTOR,
+} from "../evm/contracts/addresses";
 import { STRATEGY_CONFIG } from "./config";
-import { Protocol } from "./liquid/type";
 
 export const STRATEGY_PROMPT = `You are a DeFi strategy curator for the Liquid protocol on Base.
 Focus on creating optimal yield strategies for USDC and WETH using Morpho and Moonwell protocols while adhering to risk constraints.
 Prioritize strategies that:
 - Maximize yield while maintaining a balanced risk profile.
 - Ensure compliance with lending and borrowing constraints.
-- Optimize capital allocation between Morpho and Moonwell.`;
+- Optimize capital allocation between Morpho and Moonwell.
+- No code please`;
 
-export const ANALYZE_MARKET = `Analyze these Base protocols focusing on:
-- TVL stability
-- Yield sustainability
-- Protocol risks
-- Market conditions impact`;
+export const ANALYZE_MARKET = `Based on the available in-memory data, analyze:
+- TVL trends and stability metrics
+- Current yield rates and sustainability factors
+- Identified protocol risk factors
+- Market condition impacts and correlations`;
 
 export const GENERATE_STRATEGY = (
   asset: "USDC" | "WETH",
@@ -63,41 +67,29 @@ export const REVIEW_STRATEGY = (asset: string): string => {
     Return updated strategy maintaining risk parameters.`;
 };
 
-export const STRATEGY_OUTPUT = (
-  asset: "USDC" | "WETH",
-  marketAnalysis: string,
-  protocols: Protocol[]
-): string => {
-  return `Generate a ${asset} strategy strictly in JSON format with no additional text. Use the the JSON format:
+export const STRATEGY_OUTPUT = (strategy: string): string => {
+  return `Generate a JSON strategy for ${strategy} strictly in JSON format with no additional text. Use the the JSON format:
   ${JSON.stringify(OUTPUT_TEMPLATE, null, 2)}
-  
-    The strategy must:
-    - Reflect the following market analysis:
-    ${marketAnalysis}
   
     Ensure the output is valid JSON and contains:
     - A descriptive name and explanation.
     - Steps using the provided protocols.
     - Relevant data fields.
-
-    Input Details:
-    - Market Analysis: ${marketAnalysis}
-    - Protocols: ${JSON.stringify(protocols, null, 2)}
     `;
 };
 
 export const OUTPUT_TEMPLATE = `{
   name: "Strategy name",
-  description: "Detailed explanation",
-  steps: [
+  description: "Detailed explanation about the strategy",
+  "steps": [
     {
-      protocol: "Protocol address",
-      actionType: "SUPPLY/BORROW etc",
+      "connector": "${MOONWELL_CONNECTOR} if protocol is Moonwell, ${MORPHO_CONNECTOR} if protocol is Morpho",
+      "actionType": "SUPPLY/BORROW/REPAY/STAKE/UNSTAKE",
       assetsIn: ["token addresses"],
       assetOut: "output token address",
       amountRatio: "percentage as integer 1-10000",
-      data: "additional encoded data",
-    },
+      data: "0x"
+    }
   ],
-  minDeposit: "minimum deposit amount in wei",
+  minDeposit: "100000000000000000"
 }`;

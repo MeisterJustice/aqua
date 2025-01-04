@@ -1,15 +1,15 @@
 import { STRATEGY_PROMPT } from "./prompts";
 
-const bank_id = "base_defi_market_data";
+const bank_id = "base_market_data";
 export const AGENT_CONFIG = {
   enable_session_persistence: false,
   instructions: STRATEGY_PROMPT,
-  model: "meta-llama/Llama-3.1-405B-Instruct-FP8",
+  model: "meta-llama/Llama-3.1-70B-Instruct",
   max_infer_iters: 100,
   tools: [
     {
       max_chunks: 1000,
-      max_tokens_in_context: 4096,
+      max_tokens_in_context: 8192,
       memory_bank_configs: [
         {
           bank_id,

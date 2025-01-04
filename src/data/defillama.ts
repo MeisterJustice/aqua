@@ -26,9 +26,11 @@ const TOKEN_ADDRESSES = {
 async function fetchAPI<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
+    console.error(`API call failed: ${url}, status: ${response.status}`);
     throw new Error(`API call failed: ${url}`);
   }
-  return response.json() as Promise<T>;
+  const data = await response.json();
+  return data as T;
 }
 
 async function fetchTokenPricesAndChanges(tokens: string[]): Promise<{
@@ -38,16 +40,16 @@ async function fetchTokenPricesAndChanges(tokens: string[]): Promise<{
   const tokenIds = tokens.map((address) => `base:${address}`).join(",");
   const [prices, day, week, month] = await Promise.all([
     fetchAPI<CoinsResponse>(
-      `${API_ENDPOINTS.COINS_API}/prices/current/${tokenIds}`,
+      `${API_ENDPOINTS.COINS_API}/prices/current/${tokenIds}`
     ),
     fetchAPI<PriceChangeResponse>(
-      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=24h`,
+      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=24h`
     ),
     fetchAPI<PriceChangeResponse>(
-      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=7d`,
+      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=7d`
     ),
     fetchAPI<PriceChangeResponse>(
-      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=30d`,
+      `${API_ENDPOINTS.COINS_API}/percentage/${tokenIds}?period=30d`
     ),
   ]);
 
@@ -66,117 +68,108 @@ async function fetchTokenPricesAndChanges(tokens: string[]): Promise<{
 
 async function fetchDeFiData(): Promise<MarketData[]> {
   try {
-    // Fetch all required data
     const [moonwellProtocol, morphoProtocol, yieldsData] = await Promise.all([
       fetchAPI<LlamaProtocolResponse>(
-        `${API_ENDPOINTS.DEFI_LLAMA}/protocol/moonwell`,
+        `${API_ENDPOINTS.DEFI_LLAMA}/protocol/moonwell`
       ),
       fetchAPI<LlamaProtocolResponse>(
-        `${API_ENDPOINTS.DEFI_LLAMA}/protocol/morpho`,
+        `${API_ENDPOINTS.DEFI_LLAMA}/protocol/morpho`
       ),
       fetchAPI<LlamaYieldResponse>(`${API_ENDPOINTS.YIELDS_API}/pools`),
     ]);
 
-    // Filter yields for Base network and our protocols
     const baseYields = yieldsData.data.filter(
       (pool) =>
         pool.chain === "Base" &&
-        (pool.project === "moonwell" || pool.project === "morpho"),
+        (pool.project === "moonwell" || pool.project === "morpho")
     );
 
-    // Fetch price data
     const tokenAddresses = Object.values(TOKEN_ADDRESSES);
     const { prices, changes } =
       await fetchTokenPricesAndChanges(tokenAddresses);
 
-    // Format Moonwell markets data
     const moonwellMarkets: Record<string, Market> = {};
-    const moonwellYields = baseYields.filter(
-      (pool) => pool.project === "moonwell",
-    );
-    moonwellYields.forEach((pool) => {
-      const underlyingToken = pool.underlyingTokens[0];
-      if (
-        underlyingToken &&
-        Object.values(TOKEN_ADDRESSES).includes(underlyingToken)
-      ) {
-        moonwellMarkets[underlyingToken as keyof typeof TOKEN_ADDRESSES] = {
-          supplyRate: pool.apyBase,
-          borrowRate: pool.apy - pool.apyBase || 0, // apyBaseBorrow is apy - apyBase
-          totalSupply: BigInt(
-            Math.floor(moonwellProtocol.currentChainTvls["Base"] || 0),
-          ),
-          totalBorrow: BigInt(
-            Math.floor(moonwellProtocol.currentChainTvls["Base-borrowed"] || 0),
-          ),
-          liquidity:
-            BigInt(Math.floor(moonwellProtocol.currentChainTvls["Base"] || 0)) -
-            BigInt(
-              Math.floor(
-                moonwellProtocol.currentChainTvls["Base-borrowed"] || 0,
-              ),
+    baseYields
+      .filter((pool) => pool.project === "moonwell")
+      .forEach((pool) => {
+        const underlyingToken = pool.underlyingTokens[0];
+        if (
+          underlyingToken &&
+          Object.values(TOKEN_ADDRESSES).includes(
+            underlyingToken as (typeof TOKEN_ADDRESSES)[keyof typeof TOKEN_ADDRESSES]
+          )
+        ) {
+          moonwellMarkets[underlyingToken] = {
+            supplyRate: pool.apyBase,
+            borrowRate: pool.apy - pool.apyBase || 0,
+            totalSupply: BigInt(
+              Math.floor(moonwellProtocol.currentChainTvls["Base"] || 0)
             ),
-          collateralFactor: 0.8,
-        };
-      }
-    });
+            totalBorrow: BigInt(
+              Math.floor(
+                moonwellProtocol.currentChainTvls["Base-borrowed"] || 0
+              )
+            ),
+            liquidity:
+              BigInt(
+                Math.floor(moonwellProtocol.currentChainTvls["Base"] || 0)
+              ) -
+              BigInt(
+                Math.floor(
+                  moonwellProtocol.currentChainTvls["Base-borrowed"] || 0
+                )
+              ),
+            collateralFactor: 0.8,
+          };
+        }
+      });
 
-    // Format Morpho vaults data
     const morphoVaults: Record<string, Vault> = {};
-    const morphoYields = baseYields.filter((pool) => pool.project === "morpho");
+    baseYields
+      .filter((pool) => pool.project === "morpho")
+      .forEach((pool) => {
+        if (
+          pool.underlyingTokens[0] &&
+          Object.values(TOKEN_ADDRESSES).includes(
+            pool
+              .underlyingTokens[0] as (typeof TOKEN_ADDRESSES)[keyof typeof TOKEN_ADDRESSES]
+          )
+        ) {
+          morphoVaults[pool.underlyingTokens[0]] = {
+            apy: pool.apy,
+            tvl: BigInt(morphoProtocol.currentChainTvls["Base"] || 0),
+            token: pool.underlyingTokens[0],
+            performanceFee: 0.1,
+            timelock: 86400,
+          };
+        }
+      });
 
-    morphoYields.forEach((pool) => {
-      if (
-        pool.underlyingTokens[0] &&
-        Object.values(TOKEN_ADDRESSES).includes(pool.underlyingTokens[0])
-      ) {
-        morphoVaults[pool.underlyingTokens[0]] = {
-          apy: pool.apy,
-          tvl: morphoProtocol.currentChainTvls["Base"] || 0,
-          token: pool.underlyingTokens[0],
-          performanceFee: 0.1,
-          timelock: 86400,
-        };
-      }
-    });
-
-    // Format tokens data
     const tokens: Record<string, Token> = {};
     Object.values(TOKEN_ADDRESSES).forEach((address) => {
       const priceData = prices.coins[`base:${address}`];
       const priceChange = changes[address];
-      const yieldData = baseYields.find(
-        (pool) => pool.underlyingTokens[0] === address,
-      );
-
       tokens[address] = {
         price: priceData?.price || 0,
         priceChange: priceChange || { "24h": 0, "7d": 0, "30d": 0 },
         decimals: address === TOKEN_ADDRESSES.USDC ? 6 : 18,
-        symbol: yieldData?.symbol || priceData?.symbol || "",
-        totalSupply: 0,
+        symbol: priceData?.symbol || "",
+        totalSupply: BigInt(0),
       };
     });
 
-    // Format risk metrics
     const riskMetrics: Record<string, RiskMetrics> = {};
-    [...Object.keys(moonwellMarkets), ...Object.keys(morphoVaults)].forEach(
-      (address) => {
-        const yieldData = baseYields.find(
-          (pool) => pool.underlyingTokens[0] === address,
-        );
+    Object.keys(moonwellMarkets).forEach((address) => {
+      riskMetrics[address] = {
+        tvlUSD: 0,
+        volume24hUSD: 0,
+        uniqueUsers24h: 0,
+        healthFactor: 0.85,
+        lastUpdate: Date.now(),
+      };
+    });
 
-        riskMetrics[address] = {
-          tvlUSD: yieldData?.tvlUsd || 0,
-          volume24hUSD: yieldData?.volumeUsd1d || 0,
-          uniqueUsers24h: 0,
-          healthFactor: 0.85,
-          lastUpdate: Date.now(),
-        };
-      },
-    );
-
-    return [
+    const result: MarketData[] = [
       {
         timestamp: Date.now(),
         blockNumber: 18000000,
@@ -188,6 +181,8 @@ async function fetchDeFiData(): Promise<MarketData[]> {
         riskMetrics,
       },
     ];
+
+    return result;
   } catch (error) {
     console.error("Error fetching DeFi data:", error);
     throw error;
@@ -199,6 +194,6 @@ export async function getMarketData(): Promise<MarketData[]> {
     return await fetchDeFiData();
   } catch (error) {
     console.error("Failed to fetch market data:", error);
-    throw new Error("Market data fetching failed");
+    throw error;
   }
 }

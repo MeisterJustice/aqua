@@ -1,282 +1,230 @@
-//- Core strategy generation logic
-// - Creates and manages the AI agent
-// - Generates prompts based on market conditions
+import { Attachment } from "llama-stack-client/resources";
+import LlamaStackClient from "llama-stack-client";
 
-import { GeneratedStrategy } from "./types";
-import { AGENT_CONFIG, STRATEGY_CONFIG, SAFETY_CONFIG } from "./config";
-import { MarketData } from "../memory/types";
+import { Stream } from "llama-stack-client/streaming";
+import { AgentsTurnStreamChunk } from "llama-stack-client/resources/agents/turns";
 import { llamaService } from "../provider/llama";
+import {
+  ANALYZE_MARKET,
+  GENERATE_STRATEGY,
+  MONITOR_STRATEGY,
+  REVIEW_STRATEGY,
+  OUTPUT_TEMPLATE,
+  STRATEGY_OUTPUT,
+} from "./prompts";
+import { Strategy, Step, GeneratedStrategy, MarketCondition } from "./types";
+import { AGENT_CONFIG } from "./config";
 
-export class Curator {
-  constructor() {}
+export class LiquidAgentCurator {
+  private agent!: LlamaStackClient.Agents;
+  private sessionId!: string;
+  private agentId!: string;
 
-  async generateStrategy(
-    assetType: keyof typeof STRATEGY_CONFIG,
-    amount: bigint,
-  ): Promise<GeneratedStrategy> {
-    const strategy = await this.createOptimalStrategy(assetType, amount);
-    //TEST WITH REAL DATA LATER
-    // await this.validateStrategy(strategy, assetType);
-
-    return strategy;
+  constructor() {
+    this.initializeAgent();
   }
 
-  private async createOptimalStrategy(
-    assetType: keyof typeof STRATEGY_CONFIG,
-    amount: bigint,
-  ): Promise<GeneratedStrategy> {
-    const { client, agent, session } = await this.initializeAgent();
-
-    const response = await client.agents.turns.create({
-      agent_id: agent.agent_id,
-      session_id: session.session_id,
-      stream: true,
-      messages: [
-        {
-          role: "user",
-          content: `Thoroughly analyse the data for financial use and give me 1 strategy with 1 steps each i can invest for ${assetType.toUpperCase()}. json format only please and no other content`,
-        },
-      ],
-    });
-
-    const stream = response.toReadableStream();
-    const reader = stream.getReader();
-    return await this.processStream(reader);
-  }
-
-  private async initializeAgent() {
+  async initializeAgent() {
     const client = llamaService.getClient();
-    const agent = await client.agents.create({
+    const agentResponse = await client.agents.create({
       // @ts-ignore
       agent_config: AGENT_CONFIG,
     });
 
-    const session = await client.agents.sessions.create({
-      agent_id: agent.agent_id,
-      session_name: agent.agent_id,
+    this.agent = client.agents;
+    this.agentId = agentResponse.agent_id;
+
+    const session = await this.agent.sessions.create({
+      agent_id: this.agentId,
+      session_name: "liquid_agent_strategy",
+    });
+    this.sessionId = session.session_id;
+  }
+
+  async analyzeMarketConditions(): Promise<string> {
+    const stream = await this.agent!.turns.create({
+      agent_id: this.agentId,
+      session_id: this.sessionId,
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content: ANALYZE_MARKET,
+        },
+      ],
+    });
+    return await this.processStream(stream);
+  }
+
+  async createStrategies() {
+    try {
+      const marketAnalysis = await this.analyzeMarketConditions();
+
+      const [usdcStrategy, wethStrategy] = await Promise.all([
+        this.createStrategy("USDC", marketAnalysis),
+        this.createStrategy("WETH", marketAnalysis),
+      ]);
+
+      return await Promise.all([
+        this.generateStrategyOutput(usdcStrategy),
+        this.generateStrategyOutput(wethStrategy),
+      ]);
+    } catch (error) {
+      console.error("Error in LiquidAgentCurator run:", error);
+      throw error;
+    }
+  }
+
+  async createStrategy(
+    asset: "USDC" | "WETH",
+    marketAnalysis: string
+  ): Promise<Strategy | any> {
+    const stream = await this.agent.turns.create({
+      agent_id: this.agentId,
+      session_id: this.sessionId,
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content: GENERATE_STRATEGY(asset, marketAnalysis),
+        },
+      ],
+    });
+    return await this.processStream(stream);
+  }
+
+  async monitorStrategy(
+    strategy: Strategy,
+    currentMarket: MarketCondition
+  ): Promise<string> {
+    const monitoringData: Attachment = {
+      content: JSON.stringify(
+        {
+          strategy,
+          current_market: currentMarket,
+        },
+        null,
+        2
+      ),
+      mime_type: "application/json",
+    };
+
+    const stream = await this.agent.turns.create({
+      messages: [
+        {
+          role: "user",
+          content: MONITOR_STRATEGY(strategy.asset),
+        },
+      ],
+      attachments: [monitoringData],
+      agent_id: this.agentId,
+      session_id: this.sessionId,
+      stream: true,
     });
 
-    return { client, agent, session };
+    return await this.processStream(stream);
   }
 
-  private async processStream(
-    reader: ReadableStreamDefaultReader,
-  ): Promise<any> {
-    let fullText = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      if (!value) continue;
-
-      const chunk = new TextDecoder().decode(value);
-      try {
-        const parsedChunk = JSON.parse(chunk);
-
-        if (parsedChunk?.event?.payload?.text_delta)
-          fullText += parsedChunk.event.payload.text_delta;
-
-        if (parsedChunk?.event?.payload?.event_type === "turn_complete") {
-          const turnData = parsedChunk.event.payload.turn;
-          const modelResponse = turnData.steps.find(
-            (step: { step_type: string }) => step.step_type === "inference",
-          )?.model_response;
-
-          if (modelResponse?.content)
-            return JSON.parse(
-              modelResponse.content.replace(/```\n?j?s?o?n?\n?/g, ""),
-            );
-        }
-      } catch (error) {
-        console.error("Error processing chunk:", error);
-        continue;
-      }
-    }
-  }
-
-  private prepareMarketContext(marketData: MarketData) {
-    return {
-      protocols: {
-        moonwell: {
-          markets: Object.entries(marketData.protocols.moonwell.markets).map(
-            ([address, market]: [
-              string,
-              (typeof marketData.protocols.moonwell.markets)[string],
-            ]) => ({
-              address,
-              supplyRate: market.supplyRate,
-              borrowRate: market.borrowRate,
-              totalSupply: market.totalSupply.toString(),
-              totalBorrow: market.totalBorrow.toString(),
-              liquidity: market.liquidity.toString(),
-              collateralFactor: market.collateralFactor,
-            }),
-          ),
+  async weeklyUpdate(
+    strategy: Strategy,
+    marketData: MarketCondition
+  ): Promise<Strategy | any> {
+    const updateData: Attachment = {
+      content: JSON.stringify(
+        {
+          current_strategy: strategy,
+          market_data: marketData,
         },
-        morpho: {
-          vaults: Object.entries(marketData.protocols.morpho.vaults).map(
-            ([address, vault]: [
-              string,
-              (typeof marketData.protocols.morpho.vaults)[string],
-            ]) => ({
-              address,
-              apy: vault.apy,
-              tvl: vault.tvl.toString(),
-              token: vault.token,
-              performanceFee: vault.performanceFee,
-              timelock: vault.timelock,
-            }),
-          ),
-        },
-      },
-      tokens: Object.entries(marketData.tokens).map(
-        ([address, token]: [string, (typeof marketData.tokens)[string]]) => ({
-          address,
-          price: token.price,
-          decimals: token.decimals,
-          symbol: token.symbol,
-          totalSupply: token.totalSupply.toString(),
-        }),
+        null,
+        2
       ),
-      metrics: Object.entries(marketData.riskMetrics).map(
-        ([address, metrics]: [
-          string,
-          (typeof marketData.riskMetrics)[string],
-        ]) => ({
-          address,
-          tvlUSD: metrics.tvlUSD,
-          volume24hUSD: metrics.volume24hUSD,
-          uniqueUsers24h: metrics.uniqueUsers24h,
-          healthFactor: metrics.healthFactor,
-          lastUpdate: metrics.lastUpdate,
-        }),
-      ),
+      mime_type: "application/json",
     };
+
+    const stream = await this.agent.turns.create({
+      messages: [
+        {
+          role: "user",
+          content: REVIEW_STRATEGY(strategy.asset),
+        },
+      ],
+      attachments: [updateData],
+      agent_id: this.agentId,
+      session_id: this.sessionId,
+      stream: true,
+    });
+
+    return await this.processStream(stream);
   }
 
-  private async validateStrategy(
-    strategy: GeneratedStrategy,
-    assetType: keyof typeof STRATEGY_CONFIG,
-  ): Promise<void> {
-    const constraints = STRATEGY_CONFIG[assetType];
-    const errors: string[] = [];
+  async generateStrategyOutput(strategy: string): Promise<GeneratedStrategy> {
+    const stream = await this.agent.turns.create({
+      agent_id: this.agentId,
+      session_id: this.sessionId,
+      stream: true,
+      messages: [
+        {
+          role: "user",
+          content: STRATEGY_OUTPUT(strategy),
+        },
+      ],
+    });
 
-    const uniqueProtocols = new Set(strategy.steps.map((s) => s.connector));
-    if (uniqueProtocols.size > constraints.maxProtocols) {
-      errors.push(`Too many protocols used: ${uniqueProtocols.size}`);
+    const strategyOutput = await this.processGenerateStream(stream);
+
+    console.log("Raw AI Response:", strategyOutput);
+
+    const jsonMatch = strategyOutput.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
+      throw new Error("No valid JSON detected in AI response.");
     }
 
-    if (assetType === "usdc") {
-      await this.validateUSDCStrategy(strategy, errors);
-    } else {
-      await this.validateWETHStrategy(strategy, errors);
-    }
-
-    await this.performSafetyChecks(strategy, errors);
-
-    if (errors.length > 0) {
-      throw new Error(`Strategy validation failed: ${errors.join(", ")}`);
-    }
-  }
-
-  private async validateUSDCStrategy(
-    strategy: GeneratedStrategy,
-    errors: string[],
-  ): Promise<void> {
-    const constraints = STRATEGY_CONFIG.usdc.constraints;
-
-    const lendingRatio = this.calculateLendingRatio(strategy);
-    if (lendingRatio < constraints.minLendingRatio) {
-      errors.push(`Insufficient lending ratio: ${lendingRatio}`);
-    }
-
-    const stableRatio = this.calculateStablecoinExposure(strategy);
-    if (stableRatio < constraints.minStablecoinExposure) {
-      errors.push(`Insufficient stablecoin exposure: ${stableRatio}`);
-    }
-  }
-
-  private async validateWETHStrategy(
-    strategy: GeneratedStrategy,
-    errors: string[],
-  ): Promise<void> {
-    const constraints = STRATEGY_CONFIG.weth.constraints;
-
-    const leverage = this.calculateLeverage(strategy);
-    if (leverage > constraints.maxLeverage) {
-      errors.push(`Excessive leverage: ${leverage}x`);
-    }
-
-    const lendingRatio = this.calculateLendingRatio(strategy);
-    if (lendingRatio < constraints.minLendingRatio) {
-      errors.push(`Insufficient lending ratio: ${lendingRatio}`);
+    const cleanResponse = jsonMatch[0];
+    try {
+      return JSON.parse(cleanResponse) as GeneratedStrategy;
+    } catch (error) {
+      console.error("Cleaned Response:", cleanResponse);
+      throw new Error(`Failed to parse AI response as JSON: ${error}`);
     }
   }
 
-  private async performSafetyChecks(
-    strategy: GeneratedStrategy,
-    errors: string[],
-  ): Promise<void> {
-    for (const step of strategy.steps) {
-      const tvl = await this.getProtocolTVL(step.connector);
-      if (tvl < SAFETY_CONFIG.minTVL) {
-        errors.push(`Protocol TVL too low: ${step.connector}`);
+  async processStream(stream1: AsyncIterable<any>): Promise<string> {
+    let fullText = "";
+    for await (const chunk of stream1) {
+      const typedChunk = chunk as any;
+      if (typedChunk?.event?.payload?.turn?.steps) {
+        const inferenceStep = typedChunk.event.payload.turn.steps.find(
+          (step: Step) => step.step_type === "inference"
+        );
+        if (inferenceStep?.model_response?.content)
+          fullText = inferenceStep.model_response.content;
       }
     }
 
-    const gasEstimate = await this.estimateGasCosts(strategy);
-    if (gasEstimate > SAFETY_CONFIG.maxGasEstimate) {
-      errors.push(`Gas estimate too high: ${gasEstimate}`);
+    return fullText;
+  }
+
+  async processGenerateStream(
+    stream: Stream<AgentsTurnStreamChunk>
+  ): Promise<string> {
+    let result = "";
+
+    try {
+      for await (const chunk of stream) {
+        if (
+          chunk.event?.payload &&
+          "event_type" in chunk.event.payload &&
+          chunk.event.payload.event_type === "step_progress" &&
+          "text_delta" in chunk.event.payload
+        )
+          result += chunk.event.payload.text_delta;
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error processing generate stream:", error);
+      throw error;
     }
-  }
-
-  private calculateLendingRatio(strategy: GeneratedStrategy): number {
-    const lendingSteps = strategy.steps.filter((s) => s.actionType === 0);
-    const totalRatio = strategy.steps.reduce(
-      (sum, s) => sum + Number(s.amountRatio),
-      0,
-    );
-    const lendingRatio = lendingSteps.reduce(
-      (sum, s) => sum + Number(s.amountRatio),
-      0,
-    );
-    return lendingRatio / totalRatio;
-  }
-
-  private calculateStablecoinExposure(strategy: GeneratedStrategy): number {
-    // const stableSteps = strategy.steps.filter((s) =>
-    //   STRATEGY_CONFIG.usdc.constraints.supportedStables.includes(s.assetOut)
-    // );
-    // const totalRatio = strategy.steps.reduce(
-    //   (sum, s) => sum + Number(s.amountRatio),
-    //   0
-    // );
-    // const stableRatio = stableSteps.reduce(
-    //   (sum, s) => sum + Number(s.amountRatio),
-    //   0
-    // );
-    // return stableRatio / totalRatio;
-    return 0;
-  }
-
-  private calculateLeverage(strategy: GeneratedStrategy): number {
-    const borrowSteps = strategy.steps.filter((s) => s.actionType === 1);
-    const totalBorrow = borrowSteps.reduce(
-      (sum, s) => sum + Number(s.amountRatio),
-      0,
-    );
-    const totalSupply = strategy.steps.reduce(
-      (sum, s) => sum + Number(s.amountRatio),
-      0,
-    );
-    return 1 + totalBorrow / totalSupply;
-  }
-
-  private async getProtocolTVL(address: string): Promise<bigint> {
-    return BigInt(0);
-  }
-
-  private async estimateGasCosts(strategy: GeneratedStrategy): Promise<number> {
-    return 0;
   }
 }

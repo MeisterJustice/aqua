@@ -2,7 +2,9 @@ import { Address } from "viem";
 
 // Liquid protocol
 export const MOONWELL_CONNECTOR: Address =
-  "0x0922973234bA7F7d340d20B1d92a971fBc3B1e24" as Address;
+  "0xF7937f36452306692DF9b00Bd70398acE69369d1" as Address;
+export const MORPHO_CONNECTOR: Address =
+  "0xfd8A8291d9d3dD88670f51C587c798c40dD02Db7" as Address;
 export const ENGINE: Address =
-  "0x53180b7121764Ea78C54CaF5b71b4c38Ed81a9fD" as Address;
-export const STRATEGY = "0x680416d867088ba559dfa97a6899588D10a8aC83" as Address;
+  "0x94A4D03f2823BC0A183e49636A1896B2754C5c3B" as Address;
+export const STRATEGY = "0x30Ef1A443D24F6DD626f356a55f635766D441998" as Address;

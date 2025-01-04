@@ -19,9 +19,9 @@
 // - Deploys valid strategies to Liquid Protocol on Base
 
 import { UPDATE_CONFIG } from "./agent/config";
-import { Curator } from "./agent/curator";
+import { LiquidAgentCurator } from "./agent/curator";
 import { GeneratedStrategy } from "./agent/types";
-import { mockMarketData } from "./data/mockData";
+import { getMarketData } from "./data/defillama";
 import { createStrategy } from "./evm";
 import { logger } from "./logger";
 import { MarketStore } from "./memory/marketStore";
@@ -31,10 +31,7 @@ export class Runner {
   private marketDataInterval: NodeJS.Timeout | null = null;
   private strategyGenInterval: NodeJS.Timeout | null = null;
 
-  constructor(
-    private readonly marketStore: MarketStore,
-    private readonly curator: Curator,
-  ) {}
+  constructor(private readonly marketStore: MarketStore) {}
 
   async start(): Promise<void> {
     if (this.isRunning) {
@@ -42,15 +39,15 @@ export class Runner {
     }
 
     this.isRunning = true;
-    this.runStrategyGenLoop();
+
     try {
       this.marketDataInterval = setInterval(
         () => this.runMarketDataLoop(),
-        UPDATE_CONFIG.marketData,
+        UPDATE_CONFIG.marketData
       );
       this.strategyGenInterval = setInterval(
         () => this.runStrategyGenLoop(),
-        UPDATE_CONFIG.strategyGeneration,
+        UPDATE_CONFIG.strategyGeneration
       );
     } catch (error) {
       this.isRunning = false;
@@ -82,11 +79,9 @@ export class Runner {
 
   private async runStrategyGenLoop(): Promise<void> {
     try {
-      const [usdcStrategy, wethStrategy] = await Promise.all([
-        this.curator.generateStrategy("usdc", BigInt("1000000")),
-        this.curator.generateStrategy("weth", BigInt("1000000000000000000")),
-      ]);
-      console.log([usdcStrategy, wethStrategy]);
+      const curator = new LiquidAgentCurator();
+      await curator.initializeAgent();
+      const [usdcStrategy, wethStrategy] = await curator.createStrategies();
       await this.deployStrategies([usdcStrategy, wethStrategy]);
       console.log("Strategy generation completed successfully");
     } catch (error) {
@@ -95,16 +90,16 @@ export class Runner {
   }
 
   private async fetchLatestMarketData() {
-    return mockMarketData;
+    return await getMarketData();
   }
 
   private async deployStrategies(
-    strategies: GeneratedStrategy[],
+    strategies: GeneratedStrategy[]
   ): Promise<void> {
     await Promise.all(
       strategies.map(({ name, description, steps, minDeposit }) =>
-        createStrategy({ name, description, steps, minDeposit }),
-      ),
+        createStrategy({ name, description, steps, minDeposit })
+      )
     );
   }
 }

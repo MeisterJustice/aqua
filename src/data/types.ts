@@ -109,6 +109,7 @@ export interface CoinsResponse {
   coins: Record<
     string,
     {
+      totalSupply: any;
       price: number;
       symbol: string;
       timestamp: number;
