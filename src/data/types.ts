@@ -135,9 +135,9 @@ export interface MarketData {
     moonwell: {
       markets: Record<string, Market>;
     };
-    morpho: {
-      vaults: Record<string, Vault>;
-    };
+    // morpho: {
+    //   vaults: Record<string, Vault>;
+    // };
   };
   tokens: Record<string, Token>;
   riskMetrics: Record<string, RiskMetrics>;

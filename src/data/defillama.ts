@@ -175,7 +175,7 @@ async function fetchDeFiData(): Promise<MarketData[]> {
         blockNumber: 18000000,
         protocols: {
           moonwell: { markets: moonwellMarkets },
-          morpho: { vaults: morphoVaults },
+          // morpho: { vaults: morphoVaults },
         },
         tokens,
         riskMetrics,

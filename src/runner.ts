@@ -34,12 +34,8 @@ export class Runner {
   constructor(private readonly marketStore: MarketStore) {}
 
   async start(): Promise<void> {
-    if (this.isRunning) {
-      throw new Error("Runner is already active");
-    }
-
+    if (this.isRunning) throw new Error("Runner is already active");
     this.isRunning = true;
-
     try {
       this.marketDataInterval = setInterval(
         () => this.runMarketDataLoop(),
@@ -58,13 +54,9 @@ export class Runner {
   async stop(): Promise<void> {
     this.isRunning = false;
 
-    if (this.marketDataInterval) {
-      clearInterval(this.marketDataInterval);
-    }
+    if (this.marketDataInterval) clearInterval(this.marketDataInterval);
 
-    if (this.strategyGenInterval) {
-      clearInterval(this.strategyGenInterval);
-    }
+    if (this.strategyGenInterval) clearInterval(this.strategyGenInterval);
   }
 
   private async runMarketDataLoop(): Promise<void> {
@@ -96,6 +88,7 @@ export class Runner {
   private async deployStrategies(
     strategies: GeneratedStrategy[]
   ): Promise<void> {
+    console.log({ strategies });
     await Promise.all(
       strategies.map(({ name, description, steps, minDeposit }) =>
         createStrategy({ name, description, steps, minDeposit })

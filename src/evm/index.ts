@@ -11,6 +11,7 @@ export async function createStrategy(strategy: GeneratedStrategy) {
     throw new Error("PRIVATE_KEY environment variable is required");
   }
   const account = privateKeyToAccount(`0x${process.env.PRIVATE_KEY}`);
+
   try {
     const { request } = await publicClient.simulateContract({
       address: STRATEGY,

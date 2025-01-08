@@ -90,3 +90,13 @@ export interface MarketCondition {
   gas_prices: number;
   timestamp: string;
 }
+
+export interface MoonwellConfig {
+  name: string;
+  type: string;
+  addresses: {
+    comptroller: string;
+    markets: Record<string, string>;
+  };
+  supportedActions: string[];
+}

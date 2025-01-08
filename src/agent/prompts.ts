@@ -2,14 +2,19 @@ import {
   MOONWELL_CONNECTOR,
   MORPHO_CONNECTOR,
 } from "../evm/contracts/addresses";
-import { STRATEGY_CONFIG } from "./config";
+import {
+  BASE_TOKENS,
+  MIN_DEPOSITS,
+  MOONWELL_CONFIG,
+  STRATEGY_CONFIG,
+} from "./config";
 
 export const STRATEGY_PROMPT = `You are a DeFi strategy curator for the Liquid protocol on Base.
-Focus on creating optimal yield strategies for USDC and WETH using Morpho and Moonwell protocols while adhering to risk constraints.
+Focus on creating optimal yield strategies for USDC and WETH using Moonwell protocol while adhering to risk constraints.
 Prioritize strategies that:
 - Maximize yield while maintaining a balanced risk profile.
 - Ensure compliance with lending and borrowing constraints.
-- Optimize capital allocation between Morpho and Moonwell.
+- Optimize capital allocation between Moonwell.
 - No code please`;
 
 export const ANALYZE_MARKET = `Based on the available in-memory data, analyze:
@@ -31,7 +36,40 @@ export const GENERATE_STRATEGY = (
         : `- ${key.replace(/([A-Z])/g, " $1")}: ${value}`
     )
     .join("\n");
-
+  const minDeposit = MIN_DEPOSITS[asset];
+  const protocolInfo = `
+  Available Actions on Moonwell:
+  ${MOONWELL_CONFIG.supportedActions
+    .map((action) => {
+      const baseToken = BASE_TOKENS[asset];
+      const marketToken =
+        MOONWELL_CONFIG.addresses.markets[asset === "USDC" ? "USDbC" : "mWETH"];
+      let assetsIn, assetOut;
+      switch (action) {
+        case "SUPPLY":
+          assetsIn = [`${baseToken}`];
+          assetOut = `${marketToken}`;
+          break;
+        case "WITHDRAW":
+          assetsIn = [`${marketToken}`];
+          assetOut = `${baseToken}`;
+          break;
+        case "BORROW":
+          assetsIn = [`${marketToken}`];
+          assetOut = `${baseToken}`;
+          break;
+        case "REPAY":
+          assetsIn = [`${baseToken}`];
+          assetOut = `${marketToken}`;
+          break;
+      }
+      return `
+    ${action}:
+    "assetsIn": ${JSON.stringify(assetsIn)},
+    "assetOut": "${assetOut}",
+    `;
+    })
+    .join("\n")}`;
   return `Create a ${asset} strategy following these rules:
   
   Constraints:
@@ -39,9 +77,13 @@ export const GENERATE_STRATEGY = (
   - Maximum number of protocols: ${config.maxProtocols}
   - Minimum yield: ${config.minYield}%
   - Maximum risk score: ${config.maxRiskScore}/10
+  - Minimum deposit: ${minDeposit} (WEI)
   
   Specific Constraints:
   ${constraints}
+  
+  Protocol Information:
+  ${protocolInfo}
   
   Previous Market Analysis:
   ${marketAnalysis}`;
@@ -83,8 +125,8 @@ export const OUTPUT_TEMPLATE = `{
   description: "Detailed explanation about the strategy",
   "steps": [
     {
-      "connector": "${MOONWELL_CONNECTOR} if protocol is Moonwell, ${MORPHO_CONNECTOR} if protocol is Morpho",
-      "actionType": "SUPPLY/BORROW/REPAY/STAKE/UNSTAKE",
+      connector: "${MOONWELL_CONNECTOR}",
+      actionType: "SUPPLY/BORROW/REPAY/STAKE/UNSTAKE",
       assetsIn: ["token addresses"],
       assetOut: "output token address",
       amountRatio: "percentage as integer 1-10000",

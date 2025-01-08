@@ -49,7 +49,12 @@ export const StrategyAbi = {
           name: "curator",
           type: "address",
         },
-        { indexed: true, internalType: "string", name: "name", type: "string" },
+        {
+          indexed: false,
+          internalType: "string",
+          name: "name",
+          type: "string",
+        },
         {
           indexed: false,
           internalType: "string",
@@ -402,7 +407,6 @@ export const StrategyAbi = {
               name: "lastActionTimestamp",
               type: "uint256",
             },
-            { internalType: "bool", name: "isActive", type: "bool" },
             {
               components: [
                 {
@@ -454,6 +458,17 @@ export const StrategyAbi = {
           type: "tuple",
         },
       ],
+      stateMutability: "view",
+      type: "function",
+    },
+    {
+      inputs: [
+        { internalType: "bytes32", name: "_strategyId", type: "bytes32" },
+        { internalType: "address", name: "_user", type: "address" },
+        { internalType: "address", name: "_token", type: "address" },
+      ],
+      name: "getUserTokenBalance",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
       stateMutability: "view",
       type: "function",
     },
@@ -535,6 +550,7 @@ export const StrategyAbi = {
           name: "_underlyingAmounts",
           type: "uint256[]",
         },
+        { internalType: "uint256", name: "stepIndex", type: "uint256" },
       ],
       name: "updateUserStats",
       outputs: [],
@@ -548,6 +564,19 @@ export const StrategyAbi = {
         { internalType: "uint256", name: "_indicator", type: "uint256" },
       ],
       name: "updateUserStrategy",
+      outputs: [],
+      stateMutability: "nonpayable",
+      type: "function",
+    },
+    {
+      inputs: [
+        { internalType: "bytes32", name: "_strategyId", type: "bytes32" },
+        { internalType: "address", name: "_user", type: "address" },
+        { internalType: "address", name: "_token", type: "address" },
+        { internalType: "uint256", name: "_amount", type: "uint256" },
+        { internalType: "uint256", name: "_indicator", type: "uint256" },
+      ],
+      name: "updateUserTokenBalance",
       outputs: [],
       stateMutability: "nonpayable",
       type: "function",

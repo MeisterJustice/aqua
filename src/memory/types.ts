@@ -14,17 +14,17 @@ export interface ProtocolData {
   };
 
   // Morpho data
-  morpho: {
-    vaults: {
-      [vaultAddress: string]: {
-        apy: number;
-        tvl: bigint;
-        token: string;
-        performanceFee: number;
-        timelock: number;
-      };
-    };
-  };
+  // morpho: {
+  //   vaults: {
+  //     [vaultAddress: string]: {
+  //       apy: number;
+  //       tvl: bigint;
+  //       token: string;
+  //       performanceFee: number;
+  //       timelock: number;
+  //     };
+  //   };
+  // };
 }
 // Combined market data snapshot
 export interface MarketData {
