@@ -1,0 +1,68 @@
+# vaults_fyi_types.py
+from dataclasses import dataclass
+from typing import List
+
+@dataclass
+class TvlDetails:
+    tvlNative: str
+    tvlUsd: str
+    lockedNative: str
+    lockedUsd: str
+    liquidNative: str
+    liquidUsd: str
+
+@dataclass
+class Holder:
+    address: str
+    balance: str
+
+@dataclass
+class TokenData:
+    name: str
+    assetAddress: str
+    symbol: str
+    decimals: int
+
+@dataclass
+class ApyPeriod:
+    day_1: float
+    day_7: float
+    day_30: float
+
+@dataclass
+class ApyBreakdown:
+    base: ApyPeriod
+    rewards: ApyPeriod
+    total: ApyPeriod
+
+@dataclass
+class RewardAsset:
+    name: str
+    assetAddress: str
+    symbol: str
+    decimals: int
+
+@dataclass
+class Reward:
+    apy: ApyPeriod
+    assetPriceInUsd: float
+    asset: RewardAsset
+
+@dataclass
+class VaultResponse:
+    name: str
+    address: str
+    network: str
+    protocol: str
+    tvlDetails: TvlDetails
+    tvl: str
+    liquid: str
+    locked: str
+    numberOfHolders: int
+    topHolders: List[Holder]
+    lendLink: str
+    tags: List[str]
+    token: TokenData
+    apy: ApyBreakdown
+    description: str
+    rewards: List[Reward]
