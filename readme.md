@@ -146,6 +146,7 @@ PINECONE_API_KEY=xxxxxxxxx
 PINECONE_ENVIRONMENT=us-east-1
 PRIVATE_KEY=xxxxxxxxxxxxx
 BASE_RPC_URL=https://base-mainnet.infura.io/v3/xxxxxxxxxxxxxxxxxxx
+VAULTS_FYI_API_KEY=
 ```
 
 Run

@@ -1,6 +1,6 @@
 # vaults_fyi_types.py
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class TvlDetails:
@@ -55,9 +55,6 @@ class VaultResponse:
     network: str
     protocol: str
     tvlDetails: TvlDetails
-    tvl: str
-    liquid: str
-    locked: str
     numberOfHolders: int
     topHolders: List[Holder]
     lendLink: str
@@ -66,3 +63,16 @@ class VaultResponse:
     apy: ApyBreakdown
     description: str
     rewards: List[Reward]
+    tvl: Optional[str] = None 
+    liquid: Optional[str] = None 
+    locked: Optional[str] = None 
+    isTransactional: Optional[bool] = None
+    assetPriceInUsd: Optional[int] = None
+    holdersTotalBalance: Optional[str] = None
+
+
+@dataclass
+class VaultApyResponse:
+    base: float
+    rewards: float
+    total: float
