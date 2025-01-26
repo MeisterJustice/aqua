@@ -1,176 +1,50 @@
-# Tele - Liquid Agent Curator
+# AI Agents Launchpad
 
-An AI Agent strategy curator powered by LlamaStack that automatically generates and deploys yield optimization strategies on Base through the Liquid Protocol.
-
-## Overview
-
-The Liquid AI Curator is an AI Agent that generates and deploys DeFi yield strategies.
+**AI Agents Launchpad** is a platform that enables users to create, manage, and utilize AI-driven agents to perform decentralized finance (DeFi) tasks across multiple blockchain networks. These agents can handle tasks such as trading memecoins, providing liquidity, and investing in DeFi protocols, making it easier to automate and optimize strategies in the dynamic DeFi ecosystem. The system leverages the **GOAT SDK**, **Eliza** and **Coinbase AgentKit** to offer seamless agent management and transaction execution.
 
 ## Features
 
-- Automated weekly strategy generation
-- Cross-protocol yield optimization
-- Real-time market data analysis
-- Risk-assessed strategy deployment
-- Safety checks and validations
-- Persistent market data storage
+### 1. **Agent Creation Flow**
+Users can create customized AI agents for different DeFi functions:
+- **Trading Memecoins:** Create agents that trade on **Base** and **Solana** networks, with adjustable price ranges for buying and selling.
+- **Providing Liquidity:** Set up agents to provide liquidity on **Aerodrome**, with customizable price ticks, amounts, and durations.
+- **DeFi Investments:** Build agents to perform automated investments in protocols like **Moonwell** and **Morpho**.
+- **Custom Strategies for Liquid Protocol:** Create agents that implement unique strategies for the **Liquid protocol**.
 
-## Tech Stack
+Users can also personalize the agent's character, selecting a function-focused persona such as a market analyst for trading or a sustainability-oriented personality for liquidity provision.
 
-- **LlamaStack**: AI strategy generation
-- **Viem**: Blockchain interactions
-- **TypeScript**: Development language
-- **Docker**: LlamaStack server deployment
+### 2. **Agent Token Creation**
+Each agent is associated with a unique token (e.g., **$YUKI**) paired with the **$LIQUID** token. These tokens are minted when the agent reaches a set market cap (e.g., $200k). The agent token can be used in liquidity pools, which are locked for long-term stability. This ensures trust in the agent and helps maintain liquidity and value.
 
-## Project Structure
+### 3. **Payment Model**
+The system uses a **Per-Inference Payment** model. Each time an agent performs an action (e.g., executing trades, providing liquidity, or making investments), users pay using **$LIQUID** tokens. Payments are processed on-chain directly from the user’s wallet to the agent’s wallet, incentivizing agents to perform actions that benefit the user.
 
-```text
-liquid-ai-curator/
-├── src/
-│   ├── agent/
-│   │   ├── CuratorAgent.ts        # Core agent implementation
-│   │   ├── config.ts              # Agent configuration
-│   │   ├── prompts.ts             # Strategy generation prompts
-│   │   └── types.ts               # Agent & strategy types
-│   │
-│   ├── evm/
-│   │   ├── client.ts              # Viem client setup
-│   │   ├── contracts/
-│   │   │   ├── addresses.ts
-│   │   │   └── abis/
-│   │
-│   ├── defi/
-│   │   ├── RiskAnalyzer.ts
-│   │
-│   ├── memory/
-│   │   ├── MarketStore.ts         # LlamaStack memory implementation
-│   │   └── types.ts
-│   │
-│   └── index.ts                   # Entry point
-│
-├── tests/
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
+### 4. **Agent Management Dashboard**
+The **Agent Management Dashboard** offers users full control over their agents:
+- **Agent Performance Tracking:** View metrics like profit and loss (P&L), liquidity pool status, and other agent performance data.
+- **Real-Time Risk Management:** Modify the agent’s risk settings in real-time to adapt to changing market conditions.
+- **Liquidity Management:** Manage liquidity pools by adding or removing liquidity as needed.
+- **Token and Wallet Management:** Monitor and manage the agent’s wallet balance, token status, and liquidity pool details.
 
-## Setup & Installation
+### 5. **Character Customization**
+Using **Eliza’s** natural language processing (NLP) capabilities, users can design their agent’s personality. The agent can be customized to communicate in a tone and style that fits the user's needs. For example:
+- A trading agent can have a persona based on a market analyst.
+- A liquidity provider agent could focus on sustainability and long-term growth.
+- A DeFi investor agent could adapt its tone based on risk tolerance.
 
-### Prerequisites
+The agent can learn from interactions with the user, evolving over time to improve its responses and strategies.
 
-- Node.js >= 18
-- PNPM
-- Docker (for LlamaStack)
-- Base RPC URL & Private Key
-
-### Installation
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/metastable-labs/tele.git
-cd tele
-```
-
-2. Install dependencies:
-
-```bash
-pnpm install
-```
-
-3. Configure environment:
-
-```bash
-cp .env.example .env
-```
-
-4. Update `.env` with your values:
-
-```env
-LLAMA_STACK_URL=http://localhost:5001
-BASE_RPC_URL=your_base_rpc_url
-PRIVATE_KEY=your_private_key
-```
-
-## Running
-
-1. Start LlamaStack server:
-
-```bash
-docker-compose up -d
-```
-
-2. Start the curator:
-
-```bash
-# Development
-pnpm dev
-
-# Production
-pnpm build
-pnpm start
-```
-
-## Development
-
-### TypeScript Configuration
-
-```bash
-# Run TypeScript in watch mode
-pnpm typecheck --watch
-```
-
-### Testing
-
-```bash
-# Run tests
-pnpm test
-```
-
-## Production Deployment
-
-### Using PM2
-
-```bash
-npm install -g pm2
-pm2 start dist/index.js --name tele
-```
-
-### Using Docker
-
-```bash
-docker build -t tele .
-docker run -d tele
-```
-
-## Strategy Format
-
-Example of a generated strategy:
-
-```typescript
-interface Strategy {
-  name: string;
-  description: string;
-  steps: {
-    protocol: string;
-    actionType: string;
-    assetsIn: string[];
-    assetOut: string;
-    amountRatio: number;
-    data: string;
-  }[];
-  minDeposit: bigint;
-}
-```
-
-## License
-
-BSD 3-Clause License
-
-## Support
-
-For support, please open an issue in the repository or reach out through our [Discord community](https://discord.com/invite/getliquid).
+## Benefits
+- **Customization:** Tailor agents to specific DeFi functions, risk profiles, and personalities.
+- **Automation:** Automate trading, liquidity provisioning, and investment strategies for more efficient portfolio management.
+- **Security & Stability:** Long-term liquidity pools ensure stability, and all payments are securely processed on-chain.
+- **User Engagement:** The integration of NLP provides a more human-like interaction, enhancing the user experience.
+- **Scalability:** The platform is built to scale and integrate with future DeFi protocols and user needs.
 
 ---
 
-_This project is maintained by the Liquid Protocol team_
+## How to run the project
+
+1. Clone the repository
+2. Run `npm install`
+3. Run `npm run dev`
