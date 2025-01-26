@@ -140,11 +140,9 @@ Treating **Eliza** as a **provider** ensures your core/application layers don’
 
 ### **Other Files**
 
-- **`index.ts`** / **`network.ts`** – Often used for top-level setup, environment bootstrapping, or network configuration.  
-- **`.env`** – Environment variables (secrets, RPC endpoints, etc.). Make sure it’s **excluded** from version control.
+- **`index.ts`** / **`network.ts`** – used for top-level setup, environment bootstrapping, or network configuration.  
 
 ---
-
 ## **Execution Flow**
 
 1. **API Request → `services/`**  
