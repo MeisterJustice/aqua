@@ -3,6 +3,8 @@
  * Handles agent lifecycle, state management, and action execution.
  */
 
+import { State } from "./State";
+
 export interface IAgentRuntime {
   /**
    * Starts the agent's execution cycle. If intervalMs is provided,
